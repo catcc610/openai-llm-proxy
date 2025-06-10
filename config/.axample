@@ -1,0 +1,14 @@
+# LLM代理服务配置文件
+
+# 环境变量设置
+os_env:
+  VOLCENGINE_API_KEY: "xxx"
+
+# 模型配置映射 - 指定每个模型使用的提供商
+model_config:
+  "deepseek-v3-0324": volcengine
+
+# 模型路由配置 - 每个提供商的具体模型映射
+model_routes:
+  volcengine:
+    "deepseek-v3-0324": "deepseek-v3-250324"
