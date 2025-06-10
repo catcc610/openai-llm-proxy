@@ -214,25 +214,6 @@ model_list:
       api_key: "fake-key"
 ```
 
-### 负载均衡配置
-
-```yaml
-model_list:
-  # 同一个模型名，多个部署实例
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY_1
-  - model_name: gpt-4o  
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY_2
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o  
-      api_key: os.environ/OPENAI_API_KEY_3
-```
-
 ## 💻 使用示例
 
 ### Python SDK (推荐)
