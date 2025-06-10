@@ -47,18 +47,37 @@
 
 ## 🚀 快速开始
 
-### 1. 一键安装
+### 环境要求
+
+- **Python 3.11+** 
+- **uv** (推荐的现代Python包管理器)
+
+### 1. 安装uv (如果还没有)
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 2. 克隆和安装
 
 ```bash
 # 克隆项目
 git clone https://github.com/catcc610/openai-llm-proxy.git
 cd openai-llm-proxy
 
-# 安装依赖
-pip install -r requirements.txt
+# 创建虚拟环境并安装依赖
+uv sync
+
+# 激活虚拟环境 (可选，uv run会自动处理)
+source .venv/bin/activate  # Linux/macOS
+# 或 .venv\Scripts\activate  # Windows
 ```
 
-### 2. 配置API密钥
+### 3. 配置API密钥
 
 编辑 `config/config.yaml`：
 
@@ -110,15 +129,19 @@ model_routes:
     "ernie-4": "ERNIE-4.0-8K"
 ```
 
-### 3. 启动服务
+### 4. 启动服务
 
 ```bash
+# 使用uv运行
+uv run python main.py
+
+# 或者激活虚拟环境后运行
 python main.py
 
 # 服务启动在 http://localhost:9000
 ```
 
-### 4. 测试使用
+### 5. 测试使用
 
 ```python
 from openai import OpenAI
@@ -395,7 +418,7 @@ curl http://localhost:9000/model_group/info
 
 ```python
 # 启动时开启调试日志
-python main.py --log-level debug
+uv run python main.py --log-level debug
 
 # 查看请求日志
 tail -f logs/app.log
@@ -451,7 +474,7 @@ tail -f logs/app.log
 
 ```bash
 # 启动调试模式
-python main.py --log-level debug
+uv run python main.py --log-level debug
 
 # 查看配置状态  
 curl http://localhost:9000/config
@@ -464,29 +487,33 @@ curl -X POST http://localhost:9000/v1/chat/completions \
 
 ## 🚀 生产部署
 
-### Docker部署
+### 系统服务部署
 
-```dockerfile
-FROM python:3.11-slim
+创建systemd服务文件 `/etc/systemd/system/llm-proxy.service`：
 
-WORKDIR /app
-COPY . .
+```ini
+[Unit]
+Description=LLM Proxy Service
+After=network.target
 
-RUN pip install -r requirements.txt
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/path/to/openai-llm-proxy
+Environment=PATH=/path/to/openai-llm-proxy/.venv/bin
+ExecStart=/path/to/openai-llm-proxy/.venv/bin/python main.py --host 0.0.0.0
+Restart=always
+RestartSec=3
 
-EXPOSE 9000
-CMD ["python", "main.py", "--host", "0.0.0.0"]
+[Install]
+WantedBy=multi-user.target
 ```
 
 ```bash
-# 构建镜像
-docker build -t llm-proxy .
-
-# 运行容器
-docker run -d -p 9000:9000 \
-  -e OPENAI_API_KEY=your-key \
-  -e ANTHROPIC_API_KEY=your-key \
-  --name llm-proxy llm-proxy
+# 启用并启动服务
+sudo systemctl enable llm-proxy
+sudo systemctl start llm-proxy
+sudo systemctl status llm-proxy
 ```
 
 ### Nginx反向代理
@@ -516,13 +543,20 @@ server {
 
 ```bash
 # 安装开发依赖
-pip install -r requirements-dev.txt
+uv sync --group dev
 
 # 代码质量检查
-ruff check .         # 代码风格检查
-mypy .              # 类型检查
-pytest tests/       # 运行测试
+uv run ruff check .         # 代码风格检查
+uv run mypy .              # 类型检查
 ```
+
+### 代码质量工具
+
+项目包含完整的类型安全和代码质量配置：
+
+- **MyPy** - 静态类型检查 (`mypy.ini`)
+- **Ruff** - 快速的代码检查和格式化
+- **UV** - 现代化的Python包管理
 
 ### 提交规范
 
@@ -541,10 +575,10 @@ pytest tests/       # 运行测试
 - [LiteLLM](https://github.com/BerriAI/litellm) - 出色的多提供商LLM统一接口库
 - [FastAPI](https://fastapi.tiangolo.com/) - 现代化高性能Web框架
 - [Pydantic](https://pydantic.dev/) - 强大的数据验证和类型安全库
+- [UV](https://github.com/astral-sh/uv) - 现代化的Python包管理器
 
 ## 💬 联系方式
 
-- 📧 邮箱: [your-email@domain.com]
 - 🐛 问题反馈: [GitHub Issues](../../issues)
 - 💡 功能建议: [GitHub Discussions](../../discussions)
 
