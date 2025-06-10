@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 # LiteLLM导入
-from litellm import completion
+from litellm import acompletion
 
 # 本地应用导入
 from app.config import get_config, reload_config
@@ -150,12 +150,12 @@ async def chat_completions(
             f"🚀 [{request_id}] 调用LiteLLM，参数: {json.dumps(litellm_params, indent=2, ensure_ascii=False)}"
         )
 
-        # 调用LiteLLM (同步调用)
-        response = completion(**litellm_params)
+        # 调用LiteLLM (异步调用)
+        response = await acompletion(**litellm_params)
 
         if request.stream:
             # 流式响应处理
-            return handle_litellm_streaming_response(
+            return await handle_litellm_streaming_response(
                 response, request.model, request_id
             )
         else:
@@ -214,14 +214,15 @@ def convert_litellm_response(
         )
 
 
-def handle_litellm_streaming_response(
+async def handle_litellm_streaming_response(
     litellm_stream: Any, original_model: str, request_id: str | None = None
 ) -> StreamingResponse:
     """处理LiteLLM的流式响应"""
 
     async def generate_stream() -> Any:
         try:
-            for chunk in litellm_stream:
+            # 异步迭代流式响应
+            async for chunk in litellm_stream:
                 # LiteLLM返回的流式响应已经是OpenAI格式
                 chunk_dict = (
                     chunk.model_dump() if hasattr(chunk, "model_dump") else dict(chunk)
@@ -254,6 +255,6 @@ def handle_litellm_streaming_response(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "Content-Type": "text/plain; charset=utf-8",
+            "X-Accel-Buffering": "no",  # 禁用nginx缓冲
         },
     )
