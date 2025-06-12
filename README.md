@@ -29,10 +29,9 @@
 | 🤖 **Anthropic** | Claude 3.5 Sonnet, Opus | `ANTHROPIC_API_KEY` |
 | 🧠 **Google AI** | Gemini 1.5 Pro, Flash | `GOOGLE_API_KEY` |
 | 🎯 **火山引擎** | 深度求索, 豆包 | `VOLCENGINE_API_KEY` |
-| 🔸 **百度千帆** | 文心4.0, ERNIE-Speed | `QIANFAN_AK`, `QIANFAN_SK` |
-| 🌙 **阿里灵积** | 通义千问Max, Plus | `DASHSCOPE_API_KEY` |
-| ⚡ **Groq** | Llama3.1, Mixtral | `GROQ_API_KEY` |
 | 🏠 **本地部署** | Ollama, vLLM, TGI | (查看高级配置) |
+
+> **重要提示**: 提供商名称和所需的环境变量由 LiteLLM 定义。为了确保配置正确，请在添加新模型前查阅 [**LiteLLM 官方支持的模型提供商文档**](https://docs.litellm.ai/docs/providers)。
 
 ## 🚀 快速开始
 
