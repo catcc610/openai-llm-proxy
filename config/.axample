@@ -1,14 +1,41 @@
+# LLM Proxy Service 配置文件
+
+# 服务器配置
+server:
+  host: "0.0.0.0"
+  port: 9000
+  workers: 1
+
+# 日志配置
+logging:
+  level: "info"           # 日志等级: debug, info, warning, error
+
+# 代理配置
+proxy:
+  timeout: 300
+  max_retries: 3
+  retry_delay: 1.0
+
+# 环境变量配置（API密钥等）
 # LLM代理服务配置文件
 
 # 环境变量设置
 os_env:
-  VOLCENGINE_API_KEY: "xxx"
+  VOLCENGINE_API_KEY: "xxxxxs"
+  OPENROUTER_API_KEY: "xxxx"
+
 
 # 模型配置映射 - 指定每个模型使用的提供商
 model_config:
   "deepseek-v3-0324": volcengine
-
+  "gemini-2.5-pro-preview-06-05": openrouter
+  "claude-sonnet-4": openrouter
+  
 # 模型路由配置 - 每个提供商的具体模型映射
 model_routes:
   volcengine:
     "deepseek-v3-0324": "deepseek-v3-250324"
+
+  openrouter:
+    "gemini-2.5-pro-preview-06-05": "google/gemini-2.5-pro-preview"
+    "claude-sonnet-4": "anthropic/claude-sonnet-4"
