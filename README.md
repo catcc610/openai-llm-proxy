@@ -1,574 +1,301 @@
-# 🚀 OpenAI LLM Proxy
+# 🚀 LLM Proxy: 统一大模型 API 网关
 
 <div align="center">
 
-**基于LiteLLM的100+模型统一代理服务**
+**一行代码，统一调用全球100+大模型**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-green.svg)](https://fastapi.tiangolo.com)
 [![LiteLLM](https://img.shields.io/badge/LiteLLM-100%2B%20Models-orange.svg)](https://github.com/BerriAI/litellm)
 [![Type Safety](https://img.shields.io/badge/Type%20Safe-mypy-blue.svg)](https://mypy.readthedocs.io)
 
-*一键接入全球主流AI模型，统一OpenAI API格式*
+*基于 LiteLLM 和 FastAPI 构建，提供与 OpenAI API 完全兼容的统一接口*
 
 </div>
 
-## 🎯 项目亮点
+## 🎯 项目特点
 
-### 💫 **100+模型支持**
-- **OpenAI**: GPT-4o, GPT-4 Turbo, GPT-3.5, O1系列
-- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus/Haiku
-- **Google**: Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
-- **国内厂商**: 深度求索、百度文心、阿里通义、字节火山
-- **开源模型**: Llama, Mistral, Qwen 通过各种部署方式
+- **⚡ 统一API**：完全兼容 OpenAI SDK 和 API 格式，无缝切换模型。
+- **🔌 多模型支持**：通过 LiteLLM 集成超过100种模型，包括 OpenAI, Anthropic, Google Gemini, 以及国内主流模型。
+- **⚙️ 集中化配置**：通过单个 `config.yaml` 文件统一管理所有模型的API密钥和路由规则。
+- **🚀 高性能**：基于 FastAPI 的全异步架构，为高并发场景提供高吞吐量和低延迟。
+- **🛡️ 类型安全**：使用 Pydantic 和 mypy 强制执行严格的类型检查，保证代码的健壮性和可维护性。
 
-### ⚡ **极致性能**
-- **真异步并发** - 100个请求3秒内完成
-- **首Token响应** - 平均1.5秒内返回
-- **高吞吐量** - 支持每秒30+并发请求
+## 🌟 支持的部分模型提供商
 
-### 🔧 **极简配置** 
-- **环境变量配置** - 只需设置对应的API Key
-- **热重载配置** - 运行时动态添加模型
-- **统一API格式** - 完全兼容OpenAI SDK
-
-## 🌟 支持的模型提供商
-
-| 提供商 | 支持模型 | 配置变量 | 推荐指数 |
-|--------|----------|----------|----------|
-| 🔥 **OpenAI** | GPT-4o, GPT-4, GPT-3.5, O1 | `OPENAI_API_KEY` | ⭐⭐⭐⭐⭐ |
-| 🤖 **Anthropic** | Claude 3.5 Sonnet, Claude 3 Opus | `ANTHROPIC_API_KEY` | ⭐⭐⭐⭐⭐ |
-| 🧠 **Google AI** | Gemini 2.0 Flash, Gemini 1.5 Pro | `GOOGLE_API_KEY` | ⭐⭐⭐⭐⭐ |
-| 🎯 **火山引擎** | 深度求索V3, 字节豆包 | `VOLCENGINE_API_KEY` | ⭐⭐⭐⭐⭐ |
-| 🔸 **百度千帆** | 文心4.0, ERNIE-Speed | `QIANFAN_AK`, `QIANFAN_SK` | ⭐⭐⭐⭐ |
-| 🌙 **阿里灵积** | 通义千问Max, Plus | `DASHSCOPE_API_KEY` | ⭐⭐⭐⭐ |
-| ⚡ **Groq** | Llama 3.1, Mixtral | `GROQ_API_KEY` | ⭐⭐⭐⭐ |
-| 🏠 **本地部署** | Ollama, vLLM, TGI | 无需密钥 | ⭐⭐⭐ |
+| 提供商 | 支持模型 | 配置变量 |
+|--------|----------|----------|
+| 🔥 **OpenAI** | GPT-4o, GPT-4, GPT-3.5 | `OPENAI_API_KEY` |
+| 🤖 **Anthropic** | Claude 3.5 Sonnet, Opus | `ANTHROPIC_API_KEY` |
+| 🧠 **Google AI** | Gemini 1.5 Pro, Flash | `GOOGLE_API_KEY` |
+| 🎯 **火山引擎** | 深度求索, 豆包 | `VOLCENGINE_API_KEY` |
+| 🔸 **百度千帆** | 文心4.0, ERNIE-Speed | `QIANFAN_AK`, `QIANFAN_SK` |
+| 🌙 **阿里灵积** | 通义千问Max, Plus | `DASHSCOPE_API_KEY` |
+| ⚡ **Groq** | Llama3.1, Mixtral | `GROQ_API_KEY` |
+| 🏠 **本地部署** | Ollama, vLLM, TGI | (查看高级配置) |
 
 ## 🚀 快速开始
 
 ### 环境要求
 
-- **Python 3.11+** 
+- **Python 3.11+**
 - **uv** (推荐的现代Python包管理器)
 
-### 1. 安装uv (如果还没有)
+### 1. 安装 uv
+
+如果你的系统中还没有 `uv`，请先执行安装：
 
 ```bash
-# macOS/Linux
+# macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Windows
+# Windows (PowerShell)
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### 2. 克隆和安装
+### 2. 克隆与安装依赖
 
 ```bash
 # 克隆项目
 git clone https://github.com/catcc610/openai-llm-proxy.git
 cd openai-llm-proxy
 
-# 创建虚拟环境并安装依赖
+# 使用 uv 创建虚拟环境并安装依赖
 uv sync
 
-# 激活虚拟环境 (可选，uv run会自动处理)
-source .venv/bin/activate  # Linux/macOS
-# 或 .venv\Scripts\activate  # Windows
+# (可选) 激活虚拟环境
+# source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate      # Windows
 ```
 
-### 3. 配置API密钥
+### 3. 配置模型
 
-编辑 `config/config.yaml`：
+编辑 `config/config.yaml` 文件。这是你管理所有模型密钥和路由的核心位置。
+
+下面是一个基础配置示例，演示如何添加 GPT-4o 和 Claude 3.5 Sonnet：
 
 ```yaml
-# 环境变量配置 - 只需设置你要使用的提供商
+# 1. 在 os_env 部分，为你需要使用的模型提供商设置 API 密钥。
+#    这些值将被加载为环境变量。
 os_env:
-  # OpenAI - 最高质量
   OPENAI_API_KEY: "sk-your-openai-key"
-  
-  # Anthropic Claude - 强推理能力  
   ANTHROPIC_API_KEY: "sk-ant-your-key"
-  
-  # Google Gemini - 性价比高
-  GOOGLE_API_KEY: "your-google-key"
-  
-  # 火山引擎 - 国内首选
-  VOLCENGINE_API_KEY: "your-volcengine-key"
-  
-  # 百度千帆
-  QIANFAN_AK: "your-qianfan-ak"
-  QIANFAN_SK: "your-qianfan-sk"
-  
-  # 阿里灵积
-  DASHSCOPE_API_KEY: "your-dashscope-key"
 
-# 模型配置 - 自定义模型名称映射
+# 2. 在 model_config 部分，将你希望在API中使用的自定义模型名称映射到提供商。
+#    这是告诉代理"当我请求'gpt-4o'时，你应该使用'openai'这个提供商的配置"。
 model_config:
-  "gpt-4o": openai                    # OpenAI GPT-4o
-  "claude-3-5-sonnet": anthropic      # Anthropic Claude
-  "gemini-2-flash": google            # Google Gemini  
-  "deepseek-v3": volcengine           # 火山引擎深度求索
-  "qwen-max": dashscope               # 阿里通义千问
-  "ernie-4": qianfan                  # 百度文心一言
+  "gpt-4o": openai
+  "claude-3.5-sonnet": anthropic
 
-# 提供商路由配置
+# 3. 在 model_routes 部分，为每个提供商定义具体的模型ID。
+#    这会将你的自定义名称映射到LiteLLM所需的实际模型名称。
 model_routes:
   openai:
-    "gpt-4o": "gpt-4o"
-    "gpt-4": "gpt-4"
+    "gpt-4o": "gpt-4o-2024-08-06"  # LiteLLM 需要的实际模型ID
   anthropic:
-    "claude-3-5-sonnet": "claude-3-5-sonnet-20241022"
-  google:
-    "gemini-2-flash": "gemini-2.0-flash"
-  volcengine:
-    "deepseek-v3": "deepseek-v3"
-  dashscope:
-    "qwen-max": "qwen-max"
-  qianfan:
-    "ernie-4": "ERNIE-4.0-8K"
+    "claude-3.5-sonnet": "claude-3-5-sonnet-20240620"
 ```
+
+> **为什么需要这样配置？**
+>
+> 这种三段式配置提供了一种灵活的路由机制：
+> - `os_env` 集中管理密钥。
+> - `model_config` 允许你使用简洁的自定义名称（如 `gpt-4o`）作为API入口。
+> - `model_routes` 则将这些名称精确映射到不同提供商不断更新的官方模型ID上，而无需修改你的客户端代码。
 
 ### 4. 启动服务
 
 ```bash
-# 使用uv运行
+# 使用 uv 直接运行
 uv run python main.py
 
-# 或者激活虚拟环境后运行
-python main.py
-
-# 服务启动在 http://localhost:9000
+# 服务将启动在 http://localhost:9000
 ```
 
-### 5. 测试使用
+### 5. 测试调用
+
+使用你喜欢的HTTP客户端或OpenAI官方SDK进行测试。
 
 ```python
 from openai import OpenAI
 
-# 连接本地代理
+# 连接到本地代理服务
 client = OpenAI(
     base_url="http://localhost:9000/v1",
-    api_key="dummy"  # 使用任意值，真实密钥在服务端配置
+    api_key="any-key"  # 代理服务端的密钥才是关键，这里可填任意值
 )
 
-# 使用不同模型
-models = [
-    "gpt-4o",           # OpenAI最新模型
-    "claude-3-5-sonnet", # Anthropic Claude
-    "gemini-2-flash",    # Google Gemini
-    "deepseek-v3",       # 火山引擎深度求索
-    "qwen-max",          # 阿里通义千问
-    "ernie-4"            # 百度文心一言
-]
+# 使用你在 config.yaml 中定义的模型名称
+models_to_test = ["gpt-4o", "claude-3-5-sonnet"]
 
-for model in models:
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": "你好，介绍一下你自己"}],
-        max_tokens=100
-    )
-    print(f"{model}: {response.choices[0].message.content}")
+for model_name in models_to_test:
+    try:
+        print(f"--- 正在测试模型: {model_name} ---")
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": "你好，请介绍一下你自己。"}],
+            max_tokens=100
+        )
+        print(f"响应: {response.choices[0].message.content}\n")
+    except Exception as e:
+        print(f"调用模型 {model_name} 时出错: {e}\n")
 ```
 
 ## 🔧 高级配置
 
-### 通配符路由 - 支持所有模型
+### 本地模型 (Ollama)
+
+你可以配置代理以连接到本地运行的模型，例如通过Ollama部署的Llama 3.1。
 
 ```yaml
-model_list:
-  # OpenAI 所有模型
-  - model_name: "openai/*"
-    litellm_params:
-      model: "openai/*"
-      api_key: os.environ/OPENAI_API_KEY
-      
-  # Anthropic 所有模型  
-  - model_name: "anthropic/*"
-    litellm_params:
-      model: "anthropic/*"
-      api_key: os.environ/ANTHROPIC_API_KEY
-      
-  # Google 所有模型
-  - model_name: "google/*"
-    litellm_params:
-      model: "google/*"
-      api_key: os.environ/GOOGLE_API_KEY
+# config/config.yaml
+
+# 1. os_env 中无需添加密钥 (对于本地Ollama)
+
+# 2. model_config 中映射模型名称到自定义的提供商名称 "ollama_local"
+model_config:
+  "llama3.1": ollama_local
+
+# 3. model_routes 中定义 "ollama_local" 提供商的具体配置
+model_routes:
+  ollama_local:
+    # 这里的 "llama3.1" 必须与 model_config 中的名称匹配
+    "llama3.1": "ollama/llama3.1" # LiteLLM格式: "ollama/<model_tag>"
 ```
+> **注意**: 上述配置中的 `ollama_local` 是一个自定义的提供商标识符，你可以使用任何你喜欢的名称，只要在 `model_config` 和 `model_routes` 中保持一致即可。LiteLLM将根据 `ollama/` 前缀识别并连接到默认的Ollama服务地址 (`http://localhost:11434`)。
 
-### 本地模型支持
+## 💻 API 使用示例
 
-```yaml
-model_list:
-  # Ollama 本地部署
-  - model_name: "llama3.1"
-    litellm_params:
-      model: "ollama/llama3.1"
-      api_base: "http://localhost:11434"
-      
-  # vLLM 部署
-  - model_name: "custom-model"
-    litellm_params:
-      model: "openai/custom-model"
-      api_base: "http://localhost:8000"
-      api_key: "fake-key"
-```
+代理服务完全兼容OpenAI的API规范。你可以使用任何支持OpenAI API的工具。
 
-## 💻 使用示例
-
-### Python SDK (推荐)
+### Python SDK
 
 ```python
 import openai
 
-# 初始化客户端
 client = openai.OpenAI(
     base_url="http://localhost:9000/v1",
-    api_key="dummy"
+    api_key="dummy-key"
 )
 
-# 普通对话
+# --- 基础对话 ---
 response = client.chat.completions.create(
     model="gpt-4o",
     messages=[
-        {"role": "system", "content": "你是一个有用的AI助手"},
-        {"role": "user", "content": "解释什么是大语言模型"}
+        {"role": "system", "content": "你是一个乐于助人的AI助手。"},
+        {"role": "user", "content": "解释一下什么是"量子纠缠"。"}
     ]
 )
+print(response.choices[0].message.content)
 
-# 流式响应
+# --- 流式响应 ---
 stream = client.chat.completions.create(
     model="claude-3-5-sonnet",
-    messages=[{"role": "user", "content": "写一个Python函数计算斐波那契数列"}],
+    messages=[{"role": "user", "content": "用Python写一个斐波那契数列函数，并解释其工作原理。"}],
     stream=True
 )
 
 for chunk in stream:
     if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="")
+        print(chunk.choices[0].delta.content, end="", flush=True)
 
-# 视觉模型
+# --- 视觉模型（多模态） ---
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-4o", # 确保此模型支持视觉
     messages=[{
         "role": "user", 
         "content": [
-            {"type": "text", "text": "这张图片里有什么？"},
-            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+            {"type": "text", "text": "这张图片里有什么内容？"},
+            {
+                "type": "image_url", 
+                "image_url": {
+                    # 支持URL或Base64编码的图片
+                    "url": "data:image/jpeg;base64,/9j/4AAQSk...your_base64_string...",
+                }
+            }
         ]
     }]
 )
-
-# 工具调用
-response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "北京今天天气怎么样？"}],
-    tools=[{
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "获取指定城市的天气信息",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "city": {"type": "string", "description": "城市名称"}
-                }
-            }
-        }
-    }]
-)
+print(response.choices[0].message.content)
 ```
 
-### HTTP API 调用
+### cURL
 
 ```bash
-# 普通聊天
-curl -X POST http://localhost:9000/v1/chat/completions \
+# 基础对话
+curl http://localhost:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "你好"}]
+    "messages": [{"role": "user", "content": "你好！"}]
   }'
 
 # 流式响应
-curl -X POST http://localhost:9000/v1/chat/completions \
+curl http://localhost:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-3-5-sonnet",
-    "messages": [{"role": "user", "content": "写一首诗"}],
+    "messages": [{"role": "user", "content": "写一首关于宇宙的短诗。"}],
     "stream": true
   }'
 
-# 获取模型列表
+# 获取可用模型列表 (基于你的配置)
 curl http://localhost:9000/v1/models
 
 # 健康检查
 curl http://localhost:9000/health
 ```
 
-### JavaScript/Node.js
+## 🧪 性能测试
 
-```javascript
-import OpenAI from 'openai';
-
-const client = new OpenAI({
-  baseURL: 'http://localhost:9000/v1',
-  apiKey: 'dummy'
-});
-
-async function chat() {
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [{ role: 'user', content: '你好，世界！' }]
-  });
-  
-  console.log(response.choices[0].message.content);
-}
-
-chat();
-```
-
-## 📊 性能优势
-
-### 🚀 异步优化后的性能表现
-
-| 指标 | 优化前 | 优化后 | 提升倍数 |
-|------|--------|--------|----------|
-| **首Token响应** | 29.4秒 | 1.5秒 | **19.6倍** |
-| **并发处理** | 串行排队 | 真并发 | **质的飞跃** |
-| **吞吐量** | 2 QPS | 33+ QPS | **16.5倍** |
-| **总响应时间** | 29.5秒 | 3.0秒 | **9.8倍** |
-
-### 🎯 性能测试代码
+本项目基于异步框架构建，能够处理高并发请求。你可以使用以下脚本进行简单的基准测试。
 
 ```python
 import asyncio
 import aiohttp
 import time
 
+# 测试参数
+CONCURRENT_REQUESTS = 100
+MODEL_TO_TEST = "gpt-4o" # 替换为你想测试的、已配置的模型
+PROMPT = "你好"
+
 async def benchmark():
-    """性能基准测试"""
+    """对代理服务进行并发请求基准测试"""
     async with aiohttp.ClientSession() as session:
         tasks = []
         start_time = time.time()
         
-        # 100个并发请求
-        for i in range(100):
+        # 创建并发任务
+        for i in range(CONCURRENT_REQUESTS):
             task = session.post(
                 "http://localhost:9000/v1/chat/completions",
                 json={
-                    "model": "gpt-4o",
-                    "messages": [{"role": "user", "content": f"测试 {i+1}"}],
+                    "model": MODEL_TO_TEST,
+                    "messages": [{"role": "user", "content": f"{PROMPT} {i+1}"}],
                     "max_tokens": 50
-                }
+                },
+                headers={"Authorization": "Bearer dummy-key"}
             )
             tasks.append(task)
         
-        responses = await asyncio.gather(*tasks)
-        total_time = time.time() - start_time
+        # 等待所有请求完成
+        responses = await asyncio.gather(*[asyncio.ensure_future(t) for t in tasks])
         
-        print(f"100个并发请求完成时间: {total_time:.2f}秒")
-        print(f"平均QPS: {100/total_time:.1f}")
+        successful_requests = [r for r in responses if r.status == 200]
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        print(f"--- 性能基准测试结果 ---")
+        print(f"测试模型: {MODEL_TO_TEST}")
+        print(f"总请求数: {CONCURRENT_REQUESTS}")
+        print(f"成功请求数: {len(successful_requests)}")
+        print(f"总耗时: {total_time:.2f} 秒")
+        
+        if total_time > 0:
+            qps = len(successful_requests) / total_time
+            print(f"平均QPS (每秒请求数): {qps:.2f}")
 
-asyncio.run(benchmark())
+if __name__ == "__main__":
+    asyncio.run(benchmark())
 ```
-
-## 🛠️ 管理功能
-
-### 配置热重载
-
-```bash
-# 重载配置文件
-curl -X POST http://localhost:9000/config/reload
-
-# 查看当前配置
-curl http://localhost:9000/config
-```
-
-### 模型管理
-
-```bash
-# 获取支持的所有模型
-curl http://localhost:9000/v1/models
-
-# 获取模型详细信息
-curl http://localhost:9000/model_group/info
-```
-
-### 日志监控
-
-```python
-# 启动时开启调试日志
-uv run python main.py --log-level debug
-
-# 查看请求日志
-tail -f logs/app.log
-```
-
-## 🎨 项目特色
-
-### 🏗️ 现代化架构
-- **FastAPI** - 高性能异步Web框架
-- **Pydantic** - 严格的类型验证和序列化
-- **类型安全** - 完整的MyPy类型检查
-
-### 🔒 企业级特性
-- **请求追踪** - 每个请求唯一ID，便于调试
-- **错误处理** - 优雅的异常处理和错误信息
-- **配置管理** - 支持环境变量和YAML配置
-- **健康监控** - 内置健康检查端点
-
-### 🌈 开发体验
-- **零学习成本** - 完全兼容OpenAI API格式
-- **即插即用** - 现有代码无需修改
-- **灵活配置** - 支持各种部署方式
-
-## 🎯 使用场景
-
-### 💼 企业应用
-- **多模型对比** - 同时测试不同模型效果
-- **成本优化** - 根据任务类型选择最优模型
-- **风险分散** - 多提供商避免单点故障
-
-### 🔬 研究开发
-- **模型评估** - 统一接口测试各种模型
-- **原型开发** - 快速切换不同能力的模型
-- **性能测试** - 对比不同模型的响应速度
-
-### 🏠 个人项目
-- **成本控制** - 灵活选择性价比最高的模型
-- **功能集成** - 一套代码支持所有主流模型
-- **学习实验** - 体验不同AI模型的特色
-
-## 🔧 故障排除
-
-### 常见问题
-
-| 问题 | 原因 | 解决方案 |
-|------|------|----------|
-| 🚫 模型未找到 | 配置映射错误 | 检查`model_config`配置 |
-| 🔑 API密钥无效 | 环境变量未设置 | 确认`os_env`中的密钥 |
-| ⏰ 请求超时 | 网络或服务商问题 | 调整`timeout`设置 |
-| 🐌 响应缓慢 | 同步调用阻塞 | 检查是否使用异步版本 |
-
-### 调试方法
-
-```bash
-# 启动调试模式
-uv run python main.py --log-level debug
-
-# 查看配置状态  
-curl http://localhost:9000/config
-
-# 测试特定模型
-curl -X POST http://localhost:9000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "test"}]}'
-```
-
-## 🚀 生产部署
-
-### 系统服务部署
-
-创建systemd服务文件 `/etc/systemd/system/llm-proxy.service`：
-
-```ini
-[Unit]
-Description=LLM Proxy Service
-After=network.target
-
-[Service]
-Type=simple
-User=your-user
-WorkingDirectory=/path/to/openai-llm-proxy
-Environment=PATH=/path/to/openai-llm-proxy/.venv/bin
-ExecStart=/path/to/openai-llm-proxy/.venv/bin/python main.py --host 0.0.0.0
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-# 启用并启动服务
-sudo systemctl enable llm-proxy
-sudo systemctl start llm-proxy
-sudo systemctl status llm-proxy
-```
-
-### Nginx反向代理
-
-```nginx
-upstream llm_proxy {
-    server 127.0.0.1:9000;
-}
-
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-    
-    location / {
-        proxy_pass http://llm_proxy;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_buffering off;  # 重要：支持流式响应
-        proxy_read_timeout 300s;
-    }
-}
-```
-
-## 🤝 贡献指南
-
-### 开发环境
-
-```bash
-# 安装开发依赖
-uv sync --group dev
-
-# 代码质量检查
-uv run ruff check .         # 代码风格检查
-uv run mypy .              # 类型检查
-```
-
-### 代码质量工具
-
-项目包含完整的类型安全和代码质量配置：
-
-- **MyPy** - 静态类型检查 (`mypy.ini`)
-- **Ruff** - 快速的代码检查和格式化
-- **UV** - 现代化的Python包管理
-
-### 提交规范
-
-1. Fork 本仓库
-2. 创建功能分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送分支: `git push origin feature/amazing-feature`
-5. 创建Pull Request
-
-## 📄 许可证
-
-本项目采用 [MIT 许可证](LICENSE) - 详见LICENSE文件。
-
-## 🙏 致谢
-
-- [LiteLLM](https://github.com/BerriAI/litellm) - 出色的多提供商LLM统一接口库
-- [FastAPI](https://fastapi.tiangolo.com/) - 现代化高性能Web框架
-- [Pydantic](https://pydantic.dev/) - 强大的数据验证和类型安全库
-- [UV](https://github.com/astral-sh/uv) - 现代化的Python包管理器
-
-## 💬 联系方式
-
-- 🐛 问题反馈: [GitHub Issues](../../issues)
-- 💡 功能建议: [GitHub Discussions](../../discussions)
-
----
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助，请给我们一个星标！**
-
-*让AI模型切换像换衣服一样简单*
-
-</div>

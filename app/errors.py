@@ -11,6 +11,8 @@ from fastapi import Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.models import ErrorDetail, ErrorResponse
+
 # 只在类型检查时导入，运行时动态导入
 if TYPE_CHECKING:
     from litellm import (
@@ -61,15 +63,33 @@ logger = logging.getLogger(__name__)
 
 
 class ProxyError(Exception):
-    """代理服务自定义错误基类"""
+    """代理服务中所有自定义错误的基类"""
 
     def __init__(
-        self, message: str, status_code: int = 500, error_code: str = "PROXY_ERROR"
+        self,
+        message: str,
+        status_code: int = 500,
+        error_type: str = "internal_error",
+        param: str | None = None,
+        code: str | None = None,
     ):
+        super().__init__(message)
         self.message = message
         self.status_code = status_code
-        self.error_code = error_code
-        super().__init__(self.message)
+        self.type = error_type
+        self.param = param
+        self.code = code
+
+    def to_error_response(self) -> ErrorResponse:
+        """将异常转换为OpenAI格式的错误响应模型"""
+        return ErrorResponse(
+            error=ErrorDetail(
+                message=self.message,
+                type=self.type,
+                param=self.param,
+                code=self.code,
+            )
+        )
 
 
 class ModelNotFoundError(ProxyError):
@@ -79,7 +99,9 @@ class ModelNotFoundError(ProxyError):
         super().__init__(
             message=f"模型 '{model}' 不受支持或未配置",
             status_code=400,
-            error_code="MODEL_NOT_FOUND",
+            error_type="model_not_found",
+            param=model,
+            code="MODEL_NOT_FOUND",
         )
 
 
@@ -90,7 +112,9 @@ class ConfigurationError(ProxyError):
         super().__init__(
             message=f"配置错误: {message}",
             status_code=500,
-            error_code="CONFIGURATION_ERROR",
+            error_type="configuration_error",
+            param=message,
+            code="CONFIGURATION_ERROR",
         )
 
 
@@ -152,7 +176,7 @@ def map_litellm_error_to_http(error: Exception) -> tuple[int, str, str]:
 
     # 自定义代理错误
     elif isinstance(error, ProxyError):
-        return error.status_code, error.error_code, error.message
+        return error.status_code, error.code or "PROXY_ERROR", error.message
 
     # HTTP异常
     elif isinstance(error, HTTPException):
@@ -201,29 +225,35 @@ def create_error_response(
 
 async def handle_proxy_error(request: Request, exc: Exception) -> JSONResponse:
     """
-    处理代理服务中的各种错误
+    统一处理代理运行中捕获的异常，特别是那些由LiteLLM或其他依赖库抛出的异常
     """
-    # 生成请求ID用于错误追踪
-    request_id = getattr(request.state, "request_id", None)
-
-    # 映射错误到HTTP状态码和消息
-    status_code, error_code, message = map_litellm_error_to_http(exc)
-
-    # 记录错误日志
-    if status_code >= 500:
-        logger.error(f"服务器错误 [{request_id}]: {message}", exc_info=True)
-    else:
-        logger.warning(f"客户端错误 [{request_id}]: {message}")
-
-    # 创建错误响应
-    error_response = create_error_response(
-        status_code=status_code,
-        error_code=error_code,
-        message=message,
-        request_id=request_id,
+    request_id = getattr(request.state, "request_id", "N/A")
+    logger.error(
+        f"❌ [{request_id}] 在处理请求 {request.method} {request.url.path} 时发生未捕获的异常:",
+        exc_info=True,  # 完整记录异常堆栈
     )
 
-    return JSONResponse(status_code=status_code, content=error_response)
+    # 如果是我们的自定义错误，直接使用其属性
+    if isinstance(exc, ProxyError):
+        error_response = exc.to_error_response()
+        status_code = exc.status_code
+        return JSONResponse(
+            status_code=status_code, content=error_response.model_dump()
+        )
+
+    # 对于其他所有未知异常，映射为标准的内部服务器错误
+    # 这里可以根据 exc 的类型进行更细致的判断，例如处理 Pydantic 的 ValidationError
+    # 或者 LiteLLM 的特定异常（如果它们有统一的基类）
+    status_code = 500
+    error_response = ErrorResponse(
+        error=ErrorDetail(
+            message="代理服务发生内部错误，请检查日志了解详情。",
+            type="internal_server_error",
+            code="proxy_internal_error",
+        )
+    )
+
+    return JSONResponse(status_code=status_code, content=error_response.model_dump())
 
 
 async def handle_streaming_error(

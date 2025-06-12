@@ -18,15 +18,21 @@ class MessageRole(str, Enum):
     TOOL = "tool"
 
 
-class ChatMessage(BaseModel):
-    """聊天消息模型"""
+class ImageUrl(BaseModel):
+    """图片URL模型"""
 
-    role: MessageRole = Field(..., description="消息的角色")
-    content: Optional[str] = Field(None, description="消息内容")
-    name: Optional[str] = Field(None, description="消息发送者的名称")
-    function_call: Optional[Dict[str, Any]] = Field(None, description="函数调用信息")
-    tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="工具调用信息")
-    tool_call_id: Optional[str] = Field(None, description="工具调用ID")
+    url: str = Field(..., description="图片URL或base64编码")
+    detail: Optional[Literal["low", "high", "auto"]] = Field(
+        "auto", description="图片处理精度"
+    )
+
+
+class ContentPart(BaseModel):
+    """消息内容部分模型 - 支持文本和图片"""
+
+    type: Literal["text", "image_url"] = Field(..., description="内容类型")
+    text: str | None = Field(None, description="文本内容")
+    image_url: ImageUrl | None = Field(None, description="图片URL信息")
 
 
 class FunctionCall(BaseModel):
@@ -42,6 +48,19 @@ class ToolCall(BaseModel):
     id: str = Field(..., description="工具调用ID")
     type: Literal["function"] = Field("function", description="工具类型")
     function: FunctionCall = Field(..., description="函数调用信息")
+
+
+class ChatMessage(BaseModel):
+    """聊天消息模型 - 支持多模态内容"""
+
+    role: MessageRole = Field(..., description="消息的角色")
+    content: str | list[ContentPart] | None = Field(
+        None, description="消息内容 - 可以是字符串或多模态内容列表"
+    )
+    name: str | None = Field(None, description="消息发送者的名称")
+    function_call: FunctionCall | None = Field(None, description="函数调用信息")
+    tool_calls: list[ToolCall] | None = Field(None, description="工具调用信息")
+    tool_call_id: str | None = Field(None, description="工具调用ID")
 
 
 class Function(BaseModel):
@@ -107,152 +126,39 @@ class ChatCompletionRequest(BaseModel):
     tool_choice: Optional[Union[str, Dict[str, Any]]] = Field(
         None, description="工具选择策略"
     )
-    user: Optional[str] = Field(None, description="用户标识符")
+    user: str | None = Field(None, description="用户标识符")
 
     # 扩展参数（支持更多提供商）
-    repetition_penalty: Optional[float] = Field(
+    repetition_penalty: float | None = Field(
         None, ge=0.0, le=2.0, description="重复惩罚"
     )
-    top_k: Optional[int] = Field(None, ge=0, description="Top-K 采样参数")
+    top_k: int | None = Field(None, ge=0, description="Top-K 采样参数")
 
     # 函数调用（已弃用，但保持兼容性）
-    functions: Optional[List[Function]] = Field(
-        None, description="可用函数列表（已弃用）"
-    )
-    function_call: Optional[Union[str, Dict[str, Any]]] = Field(
+    functions: list[Function] | None = Field(None, description="可用函数列表（已弃用）")
+    function_call: str | dict[str, Any] | None = Field(
         None, description="函数调用策略（已弃用）"
     )
 
-    def to_litellm_params(self, litellm_model: str) -> Dict[str, Any]:
-        """将请求转换为LiteLLM参数格式，自动处理所有字段"""
-        # 基础参数
-        params: Dict[str, Any] = {
-            "model": litellm_model,
-            "messages": [msg.model_dump() for msg in self.messages],
-        }
+    def to_litellm_params(self, litellm_model: str) -> dict[str, Any]:
+        """将请求转换为LiteLLM参数格式，使用model_dump简化并确保可扩展性"""
 
-        # 自动添加所有非None的字段
-        field_mappings: Dict[str, Any] = {
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "top_p": self.top_p,
-            "frequency_penalty": self.frequency_penalty,
-            "presence_penalty": self.presence_penalty,
-            "stream": self.stream,
-            "stop": self.stop,
-            "user": self.user,
-            "seed": self.seed,
-            "logit_bias": self.logit_bias,
-            "logprobs": self.logprobs,
-            "top_logprobs": self.top_logprobs,
-            "n": self.n,
-            "repetition_penalty": self.repetition_penalty,
-            "top_k": self.top_k,
-        }
+        # 使用 model_dump 获取所有已设置的非None值
+        # exclude_defaults=True 确保了只有用户明确设置的参数才会被传递
+        params: dict[str, Any] = self.model_dump(exclude_unset=True, exclude_none=True)
 
-        # 添加非None的简单字段
-        for key, value in field_mappings.items():
-            if value is not None:
-                params[key] = value
+        # 强制设置/覆盖核心参数
+        params["model"] = litellm_model
 
-        # 处理复杂对象字段
-        if self.tools:
-            params["tools"] = [tool.model_dump() for tool in self.tools]
-        if self.tool_choice:
-            params["tool_choice"] = self.tool_choice
-        if self.response_format:
-            params["response_format"] = self.response_format.model_dump()
-        if self.stream_options:
-            params["stream_options"] = self.stream_options.model_dump()
-        if self.functions:
-            params["functions"] = [func.model_dump() for func in self.functions]
-        if self.function_call:
-            params["function_call"] = self.function_call
+        # LiteLLM 需要消息是纯字典列表
+        params["messages"] = [
+            msg.model_dump(exclude_none=True) for msg in self.messages
+        ]
+
+        # 移除本方法不需要传递给LiteLLM的自定义字段
+        # (如果未来添加了更多仅用于本代理的字段，可在此处添加)
 
         return params
-
-
-class LogProbs(BaseModel):
-    """LogProbs模型"""
-
-    content: Optional[List[Dict[str, Any]]] = Field(None, description="内容的logprobs")
-
-
-class ChoiceFinishReason(str, Enum):
-    """选择完成原因枚举"""
-
-    STOP = "stop"
-    LENGTH = "length"
-    FUNCTION_CALL = "function_call"
-    TOOL_CALLS = "tool_calls"
-    CONTENT_FILTER = "content_filter"
-
-
-class Choice(BaseModel):
-    """选择模型"""
-
-    index: int = Field(..., description="选择的索引")
-    message: ChatMessage = Field(..., description="助手的回复消息")
-    logprobs: Optional[LogProbs] = Field(None, description="logprobs信息")
-    finish_reason: Optional[ChoiceFinishReason] = Field(None, description="完成原因")
-
-
-class Usage(BaseModel):
-    """使用统计模型"""
-
-    prompt_tokens: int = Field(..., description="提示token数量")
-    completion_tokens: int = Field(..., description="完成token数量")
-    total_tokens: int = Field(..., description="总token数量")
-
-
-class ChatCompletionResponse(BaseModel):
-    """聊天完成响应模型"""
-
-    id: str = Field(..., description="响应ID")
-    object: Literal["chat.completion"] = Field(
-        "chat.completion", description="对象类型"
-    )
-    created: int = Field(..., description="创建时间戳")
-    model: str = Field(..., description="使用的模型名称")
-    choices: List[Choice] = Field(..., description="选择列表")
-    usage: Optional[Usage] = Field(None, description="使用统计")
-    system_fingerprint: Optional[str] = Field(None, description="系统指纹")
-
-
-# 流式响应相关模型
-class ChoiceDelta(BaseModel):
-    """流式响应的增量选择模型"""
-
-    role: Optional[MessageRole] = Field(None, description="消息角色")
-    content: Optional[str] = Field(None, description="内容增量")
-    function_call: Optional[Dict[str, Any]] = Field(None, description="函数调用增量")
-    tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="工具调用增量")
-
-
-class StreamChoice(BaseModel):
-    """流式响应选择模型"""
-
-    index: int = Field(..., description="选择的索引")
-    delta: ChoiceDelta = Field(..., description="消息增量")
-    logprobs: Optional[LogProbs] = Field(None, description="logprobs信息")
-    finish_reason: Optional[ChoiceFinishReason] = Field(None, description="完成原因")
-
-
-class ChatCompletionStreamResponse(BaseModel):
-    """流式聊天完成响应模型"""
-
-    id: str = Field(..., description="响应ID")
-    object: Literal["chat.completion.chunk"] = Field(
-        "chat.completion.chunk", description="对象类型"
-    )
-    created: int = Field(..., description="创建时间戳")
-    model: str = Field(..., description="使用的模型名称")
-    choices: List[StreamChoice] = Field(..., description="流式选择列表")
-    usage: Optional[Usage] = Field(
-        None,
-        description="使用统计（仅在stream_options.include_usage=true时的最后一个chunk中返回）",
-    )
-    system_fingerprint: Optional[str] = Field(None, description="系统指纹")
 
 
 # 错误响应模型

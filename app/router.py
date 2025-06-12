@@ -3,7 +3,11 @@
 处理模型ID的解析和映射，严格依赖配置文件
 """
 
+import logging
 from app.config import get_model_route
+
+# 获取日志记录器
+logger = logging.getLogger(__name__)
 
 
 class ModelRouter:
@@ -30,7 +34,7 @@ class ModelRouter:
         # 从配置文件获取模型路由
         configured_route = get_model_route(model_id)
         if configured_route != model_id:  # 如果有配置的路由
-            print(f"🎯 配置路由: {model_id} -> {configured_route}")
+            logger.info(f"🎯 配置路由: {model_id} -> {configured_route}")
             return configured_route
 
         # 如果配置文件中没有找到路由，直接报错
