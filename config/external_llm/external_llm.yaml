@@ -1,0 +1,95 @@
+model_keys:
+  # OpenRouter配置 - 支持环境变量
+  openrouter:
+    key1:
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY_1
+    key2:
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY_2
+
+  # 火山引擎配置 - 支持环境变量
+  volcengine:
+    key1:
+      VOLCENGINE_API_KEY: VOLCENGINE_API_KEY_1
+
+  # Google Gemini配置 - 支持环境变量
+  gemini:
+    key1:
+      GEMINI_API_KEY: GEMINI_API_KEY_1
+    key2:
+      GEMINI_API_KEY: GEMINI_API_KEY_2
+
+
+# 厂商密钥配置 - 定义环境变量到LiteLLM参数的映射关系
+provider_keys_configs:
+  openrouter:
+    env_mapping:
+      OPENROUTER_API_KEY: api_key
+
+  volcengine:
+    env_mapping:
+      VOLCENGINE_API_KEY: api_key
+
+  gemini:
+    env_mapping:
+      GEMINI_API_KEY: api_key
+
+# 模型厂商配置 - 定义模型使用哪个厂商
+provider_config:
+  # gpt模型
+  gpt-4o-mini: openrouter
+  gpt-4-turbo: openrouter
+
+  # 其他模型
+  minimax-01: openrouter
+  grok-3-mini-beta: openrouter
+  grok-3-beta: openrouter
+  mistral-small-3.1-24b-instruct: openrouter
+  mistral-nemo: openrouter
+  qwen3-235b-a22b: openrouter
+
+  # deepseek模型
+  deepseek-r1-0528: volcengine
+  deepseek-v3-0324: volcengine
+
+  # gemini模型
+  gemini-2.0-flash: gemini
+  gemini-2.5-flash: gemini
+  gemini-2.5-pro: gemini
+
+# 模型路由配置 - 支持为不同模型配置不同区域
+model_routes:
+  # OpenRouter厂商下的模型映射
+  openrouter:
+    "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet"
+    "claude-3.7-sonnet": "anthropic/claude-3.7-sonnet"
+    "minimax-01": "minimax/minimax-01"
+    "gpt-4o-mini": "openai/gpt-4o-mini"
+    "gpt-4-turbo": "openai/gpt-4-turbo"
+    "grok-3-mini-beta": "x-ai/grok-3-mini-beta"
+    "grok-3-beta": "x-ai/grok-3-mini-beta"
+    "mistral-small-3.1-24b-instruct": "mistralai/mistral-small-3.1-24b-instruct"
+    "mistral-nemo": "mistralai/mistral-nemo"
+    "qwen3-235b-a22b": "qwen/qwen3-235b-a22b"
+    "deepseek-v3-0324": "deepseek/deepseek-chat-v3-0324"
+
+  # 火山引擎厂商下的模型映射
+  volcengine:
+    "deepseek-r1-0528": "deepseek-r1-250528"
+    "deepseek-v3-0324": "deepseek-v3-250324"
+
+  # Google Gemini厂商下的模型映射
+  gemini:
+    "gemini-2.0-flash": "gemini-2.0-flash"
+    "gemini-2.5-flash": "gemini-2.5-flash"
+    "gemini-2.5-pro": "gemini-2.5-pro"
+
+
+# 自定义模型映射 - 支持环境变量
+custom_model_routes:
+  tencent:
+    api_key: TENCENT_API_KEY
+    base_url: "https://api.lkeap.cloud.tencent.com/v1"
+    "deepseek-r1": "deepseek-r1"
+    "deepseek-v3": "deepseek-v3"
+    "deepseek-v3-0324": "deepseek-v3-0324"
+    "deepseek-r1-0528": "deepseek-r1-0528" 
