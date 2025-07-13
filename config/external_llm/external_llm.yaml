@@ -56,6 +56,13 @@ provider_config:
   gemini-2.5-flash: gemini
   gemini-2.5-pro: gemini
 
+
+  # gemini-web模型
+  gemini-2.0-flash-web: gemini_web
+  gemini-2.0-flash-thinking-web: gemini_web
+  gemini-2.5-flash-web: gemini_web
+  gemini-2.5-pro-web: gemini_web
+
 # 模型路由配置 - 支持为不同模型配置不同区域
 model_routes:
   # OpenRouter厂商下的模型映射
@@ -93,3 +100,11 @@ custom_model_routes:
     "deepseek-v3": "deepseek-v3"
     "deepseek-v3-0324": "deepseek-v3-0324"
     "deepseek-r1-0528": "deepseek-r1-0528" 
+  
+  gemini_web:
+    api_key: GEMINI_WEB_API_KEY
+    base_url: "http://127.0.0.1:9001/v1"
+    "gemini-2.0-flash-web": "gemini-2.0-flash"
+    "gemini-2.0-flash-thinking-web": "gemini-2.0-flash-thinking"
+    "gemini-2.5-flash-web": "gemini-2.5-flash"
+    "gemini-2.5-pro-web": "gemini-2.5-pro"

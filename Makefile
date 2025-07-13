@@ -80,3 +80,6 @@ help:
 
 # 声明伪目标
 .PHONY: init run start lint lint-fix format format-fix type-check check fix clean dev test help
+
+supervisor-init:
+	supervisorctl reread && supervisorctl update
