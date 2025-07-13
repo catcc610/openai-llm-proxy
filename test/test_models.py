@@ -1,473 +1,432 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-LLM代理服务模型测试脚本
-测试配置文件中所有模型的各种功能：流式、非流式、工具调用、多模态
+LLM 代理模型测试脚本
+测试 config.yaml 中配置的所有模型的回复效果, 并支持多模态、工具调用和流式测试。
 """
 
-import asyncio
-import json
-import time
 import yaml
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-from openai import OpenAI
-import logging
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TestResult:
-    """测试结果数据类"""
-
-    model: str
-    test_type: str
-    success: bool
-    response_time: float
-    error: Optional[str] = None
-    response_preview: Optional[str] = None
+import asyncio
+from openai import AsyncOpenAI
+import time
+from typing import Dict, List
+import json
 
 
 class ModelTester:
-    """模型测试器"""
-
-    def __init__(
-        self, base_url: str = "http://localhost:9000/v1", api_key: str = "dummy"
-    ):
-        """初始化测试器"""
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
-        self.results: List[TestResult] = []
-
-        # 不支持多模态的模型列表
-        self.no_multimodal_models = {"deepseek-v3-0324"}
-
-        # 测试用的图片
-        # 1. 真实图片URL
-        self.test_image_url = (
-            "https://mag.npf.co.jp/wp-content/uploads/2023/10/27750021_m.jpg"
+    def __init__(self, config_path: str = "../config/external_llm/external_llm.yaml"):
+        """初始化模型测试器"""
+        # 加载配置文件
+        with open(config_path, 'r', encoding='utf-8') as f:
+            self.config = yaml.safe_load(f)
+        
+        # 获取服务器配置
+        server_config = self.config.get('server', {})
+        host = server_config.get('host', 'localhost')
+        port = 9000
+        
+        # 初始化 OpenAI 客户端，连接到本地代理服务
+        self.client = AsyncOpenAI(
+            base_url=f"http://{host}:{port}/v1",
+            api_key="test-key"  # 代理服务的API密钥，如果不需要认证可以随意设置
         )
+        
+        # 获取模型列表
+        self.models = list(self.config.get('provider_config', {}).keys())
+        
+        # 为不同测试筛选模型
+        self.multimodal_models = [m for m in self.models if 'gemini' in m]
+        self.tool_call_models = [m for m in self.models if 'sonnet' in m or 'deepseek' in m]
+        self.streaming_test_models = [m for m in self.models if 'flash' in m or 'sonnet' in m or 'deepseek' in m][:2] # 选择最多2个模型进行流式测试
 
-        # 2. 黄色图片的base64 (100x100像素的黄色PNG)
-        self.yellow_image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        # 测试问题
+        self.test_questions = [
+            "请用一句话解释什么是人工智能。"
+        ]
 
-    def load_config(self) -> Dict[str, Any]:
-        """加载配置文件"""
-        config_path = Path("../external_llm/external_llm.yaml")
-        if not config_path.exists():
-            raise FileNotFoundError(f"配置文件不存在: {config_path}")
+        # 多模态测试
+        self.multimodal_question = {
+            "text": "这张图片里有什么？请用中文描述。",
+            "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+        }
 
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-
-        logger.info(
-            f"✅ 加载配置文件成功，找到 {len(config.get('model_config', {}))} 个模型"
-        )
-        return config
-
-    def get_test_models(self) -> List[str]:
-        """获取需要测试的模型列表"""
-        config = self.load_config()
-        models = list(config.get("model_config", {}).keys())
-        logger.info(f"📋 待测试模型: {', '.join(models)}")
-        return models
-
-    async def test_basic_chat(self, model: str) -> TestResult:
-        """测试基础聊天功能（非流式）"""
-        start_time = time.time()
-
-        try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": "请简单介绍一下你自己，不超过50字"}
-                ],
-                max_tokens=100,
-                temperature=0.7,
-            )
-
-            response_time = time.time() - start_time
-            content = response.choices[0].message.content
-
-            return TestResult(
-                model=model,
-                test_type="基础聊天",
-                success=True,
-                response_time=response_time,
-                response_preview=content[:100] if content else "无内容",
-            )
-
-        except Exception as e:
-            return TestResult(
-                model=model,
-                test_type="基础聊天",
-                success=False,
-                response_time=time.time() - start_time,
-                error=str(e),
-            )
-
-    async def test_streaming_chat(self, model: str) -> TestResult:
-        """测试流式聊天功能"""
-        start_time = time.time()
-
-        try:
-            stream = self.client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": "请用一句话描述人工智能的未来"}],
-                max_tokens=100,
-                temperature=0.7,
-                stream=True,
-            )
-
-            content_parts = []
-            first_chunk_time = None
-
-            for chunk in stream:
-                if first_chunk_time is None:
-                    first_chunk_time = time.time() - start_time
-
-                if chunk.choices[0].delta.content:
-                    content_parts.append(chunk.choices[0].delta.content)
-
-            total_time = time.time() - start_time
-            full_content = "".join(content_parts)
-
-            return TestResult(
-                model=model,
-                test_type="流式聊天",
-                success=True,
-                response_time=total_time,
-                response_preview=f"首Token: {first_chunk_time:.2f}s | 内容: {full_content[:50]}...",
-            )
-
-        except Exception as e:
-            return TestResult(
-                model=model,
-                test_type="流式聊天",
-                success=False,
-                response_time=time.time() - start_time,
-                error=str(e),
-            )
-
-    async def test_tool_calling(self, model: str) -> TestResult:
-        """测试工具调用功能"""
-        start_time = time.time()
-
-        # 定义测试工具
-        tools = [
+        # 工具调用测试
+        self.tool_call_question = "旧金山今天天气怎么样？"
+        self.tools = [
             {
                 "type": "function",
                 "function": {
-                    "name": "get_weather",
-                    "description": "获取指定城市的天气信息",
+                    "name": "get_current_weather",
+                    "description": "Get the current weather in a given location",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "city": {"type": "string", "description": "城市名称"},
-                            "unit": {
+                            "location": {
                                 "type": "string",
-                                "enum": ["celsius", "fahrenheit"],
-                                "description": "温度单位",
+                                "description": "The city and state, e.g. San Francisco, CA",
                             },
+                            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
                         },
-                        "required": ["city"],
+                        "required": ["location"],
                     },
                 },
             }
         ]
 
+    async def test_single_model(self, model_name: str, question: str) -> Dict:
+        """测试单个模型（非流式）"""
+        print(f"正在测试模型: {model_name}")
+        
         try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": "请帮我查询北京的天气"}],
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=200,
+            start_time = time.time()
+            
+            response = await self.client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "user", "content": question}
+                ],
+                max_tokens=4096,
+                temperature=0.7
             )
-
-            response_time = time.time() - start_time
-            message = response.choices[0].message
-
-            if message.tool_calls:
-                tool_call = message.tool_calls[0]
-                function_name = tool_call.function.name
-                function_args = tool_call.function.arguments
-
-                return TestResult(
-                    model=model,
-                    test_type="工具调用",
-                    success=True,
-                    response_time=response_time,
-                    response_preview=f"调用函数: {function_name}({function_args})",
-                )
-            else:
-                return TestResult(
-                    model=model,
-                    test_type="工具调用",
-                    success=False,
-                    response_time=response_time,
-                    error="模型未调用工具",
-                )
-
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            result = {
+                "id": response.id,
+                "model": model_name,
+                "question": question,
+                "response": response.choices[0].message.content,
+                "response_time": round(response_time, 2),
+                "success": True,
+                "error": None,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                    "total_tokens": response.usage.total_tokens if response.usage else 0
+                }
+            }
+            
+            print(f"✅ {model_name} - 响应时间: {response_time:.2f}秒")
+            
         except Exception as e:
-            return TestResult(
-                model=model,
-                test_type="工具调用",
-                success=False,
-                response_time=time.time() - start_time,
-                error=str(e),
-            )
+            result = {
+                "id": None,
+                "model": model_name,
+                "question": question,
+                "response": None,
+                "response_time": 0,
+                "success": False,
+                "error": str(e),
+                "usage": None
+            }
+            print(f"❌ {model_name} - 错误: {str(e)}")
+        
+        return result
 
-    async def test_multimodal(self, model: str) -> TestResult:
-        """测试多模态功能"""
-        # 检查模型是否支持多模态
-        if model in self.no_multimodal_models:
-            return TestResult(
-                model=model,
-                test_type="多模态",
-                success=False,
-                response_time=0.0,
-                error="模型不支持多模态功能",
-            )
-
+    async def test_streaming_single_model(self, model_name: str, question: str) -> Dict:
+        """测试单个模型的流式响应"""
+        print(f"正在测试流式模型: {model_name}")
+        
         start_time = time.time()
-
+        time_to_first_token = None
+        response_id = None
+        full_response = ""
+        
         try:
-            # 测试1: 使用真实图片URL
-            response1 = self.client.chat.completions.create(
-                model=model,
+            stream = await self.client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": question}],
+                max_tokens=4096,
+                temperature=0.7,
+                stream=True
+            )
+            
+            async for chunk in stream:
+                if time_to_first_token is None and chunk.choices and chunk.choices[0].delta.content:
+                    time_to_first_token = time.time() - start_time
+                
+                if not response_id:
+                    response_id = chunk.id
+
+                if chunk.choices and chunk.choices[0].delta.content is not None:
+                    full_response += chunk.choices[0].delta.content
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            result = {
+                "id": response_id,
+                "model": model_name,
+                "question": question,
+                "response": full_response,
+                "response_time": round(response_time, 2),
+                "time_to_first_token": round(time_to_first_token, 2) if time_to_first_token else 0,
+                "success": True,
+                "error": None,
+                "usage": None,  # Usage is not easily available in streaming mode with proxy
+                "type": "streaming"
+            }
+            print(f"✅ {model_name} (流式) - TTFT: {result['time_to_first_token']:.2f}s, 总时间: {result['response_time']:.2f}s")
+        except Exception as e:
+            result = {
+                "id": response_id,
+                "model": model_name,
+                "question": question,
+                "response": None,
+                "response_time": 0,
+                "time_to_first_token": 0,
+                "success": False,
+                "error": str(e),
+                "usage": None,
+                "type": "streaming"
+            }
+            print(f"❌ {model_name} (流式) - 错误: {str(e)}")
+        
+        return result
+
+    async def test_multimodal_single_model(self, model_name: str) -> Dict:
+        """测试单个模型的多模态能力"""
+        print(f"正在测试多模态模型: {model_name}")
+        question = self.multimodal_question["text"]
+        
+        try:
+            start_time = time.time()
+            
+            response = await self.client.chat.completions.create(
+                model=model_name,
                 messages=[
                     {
                         "role": "user",
                         "content": [
-                            {
-                                "type": "text",
-                                "text": "请描述这张图片的内容，包括主要元素和场景。",
-                            },
+                            {"type": "text", "text": question},
                             {
                                 "type": "image_url",
-                                "image_url": {
-                                    "url": self.test_image_url,
-                                    "detail": "high",
-                                },
+                                "image_url": {"url": self.multimodal_question["image_url"]},
                             },
                         ],
                     }
                 ],
-                max_tokens=200,
+                max_tokens=4096,
+                temperature=0.7
             )
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            result = {
+                "id": response.id,
+                "model": model_name,
+                "question": question,
+                "image_url": self.multimodal_question["image_url"],
+                "response": response.choices[0].message.content,
+                "response_time": round(response_time, 2),
+                "success": True,
+                "error": None,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                    "total_tokens": response.usage.total_tokens if response.usage else 0
+                }
+            }
+            
+            print(f"✅ {model_name} - 响应时间: {response_time:.2f}秒")
+            
+        except Exception as e:
+            result = {
+                "id": None,
+                "model": model_name,
+                "question": question,
+                "image_url": self.multimodal_question["image_url"],
+                "response": None,
+                "response_time": 0,
+                "success": False,
+                "error": str(e),
+                "usage": None
+            }
+            print(f"❌ {model_name} - 错误: {str(e)}")
+        
+        return result
 
-            # 测试2: 使用base64黄色图片
-            response2 = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "这张图片是什么颜色？请简单描述。",
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{self.yellow_image_base64}",
-                                    "detail": "low",
-                                },
-                            },
-                        ],
-                    }
-                ],
-                max_tokens=100,
+    async def test_tool_call_single_model(self, model_name: str) -> Dict:
+        """测试单个模型的工具调用能力"""
+        print(f"正在测试工具调用模型: {model_name}")
+        question = self.tool_call_question
+        
+        try:
+            start_time = time.time()
+            
+            response = await self.client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": question}],
+                tools=self.tools,
+                tool_choice="auto",
+                max_tokens=4096,
+                temperature=0.7
             )
-
-            response_time = time.time() - start_time
-
-            # 合并两个测试的结果
-            content1 = response1.choices[0].message.content or ""
-            content2 = response2.choices[0].message.content or ""
-
-            combined_preview = (
-                f"URL图片: {content1[:80]}... | Base64图片: {content2[:80]}..."
-            )
-
-            return TestResult(
-                model=model,
-                test_type="多模态",
-                success=True,
-                response_time=response_time,
-                response_preview=combined_preview,
-            )
+            
+            end_time = time.time()
+            response_time = end_time - start_time
+            
+            response_message = response.choices[0].message
+            tool_calls = response_message.tool_calls
+            
+            result = {
+                "id": response.id,
+                "model": model_name,
+                "question": question,
+                "response_time": round(response_time, 2),
+                "success": True,
+                "error": None,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                    "total_tokens": response.usage.total_tokens if response.usage else 0
+                },
+                "tool_calls": None
+            }
+            
+            if tool_calls:
+                result["response"] = f"请求工具调用: {tool_calls[0].function.name}"
+                result["tool_calls"] = [{"name": tc.function.name, "arguments": tc.function.arguments} for tc in tool_calls]
+                print(f"✅ {model_name} - 工具调用成功 in {response_time:.2f}s")
+            else:
+                result["response"] = response_message.content
+                print(f"⚠️ {model_name} - 未返回工具调用 in {response_time:.2f}s")
 
         except Exception as e:
-            return TestResult(
-                model=model,
-                test_type="多模态",
-                success=False,
-                response_time=time.time() - start_time,
-                error=str(e),
-            )
+            result = {
+                "id": None,
+                "model": model_name,
+                "question": question,
+                "response": None,
+                "response_time": 0,
+                "success": False,
+                "error": str(e),
+                "usage": None,
+                "tool_calls": None
+            }
+            print(f"❌ {model_name} - 错误: {str(e)}")
+        
+        return result
 
-    async def test_model_comprehensive(self, model: str) -> List[TestResult]:
-        """对单个模型进行全面测试"""
-        logger.info(f"🧪 开始测试模型: {model}")
-
-        # 并发执行所有测试
-        tasks = [
-            self.test_basic_chat(model),
-            self.test_streaming_chat(model),
-            self.test_tool_calling(model),
-            self.test_multimodal(model),
-        ]
-
+    async def _run_tests(self, test_name: str, test_function, models: List[str], *args) -> List[Dict]:
+        """通用测试执行器"""
+        if not models:
+            print(f"\n跳过 {test_name} 测试：没有找到符合条件的模型。")
+            return []
+            
+        print(f"\n{'='*20} 开始 {test_name} 测试 {'='*20}")
+        print(f"待测模型: {', '.join(models)}")
+        
+        tasks = [test_function(model, *args) for model in models]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # 处理异常结果
+        
         processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                test_types = ["基础聊天", "流式聊天", "工具调用", "多模态"]
-                processed_results.append(
-                    TestResult(
-                        model=model,
-                        test_type=test_types[i],
-                        success=False,
-                        response_time=0.0,
-                        error=f"测试异常: {str(result)}",
-                    )
-                )
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                processed_results.append({
+                    "model": models[i], "success": False, "error": str(res)
+                })
             else:
-                processed_results.append(result)
-
+                processed_results.append(res)
         return processed_results
 
-    def print_results(self, results: List[TestResult]) -> None:
-        """打印测试结果"""
-        print("\n" + "=" * 80)
-        print("🧪 LLM代理服务模型测试报告")
-        print("=" * 80)
-
-        # 按模型分组
-        models = {}
-        for result in results:
-            if result.model not in models:
-                models[result.model] = []
-            models[result.model].append(result)
-
-        # 统计信息
-        total_tests = len(results)
-        successful_tests = sum(1 for r in results if r.success)
-
-        print("\n📊 总体统计:")
-        print(f"   总测试数: {total_tests}")
-        print(f"   成功数: {successful_tests}")
-        print(f"   失败数: {total_tests - successful_tests}")
-        print(f"   成功率: {successful_tests / total_tests * 100:.1f}%")
-
-        # 详细结果
-        for model, model_results in models.items():
-            print(f"\n🤖 模型: {model}")
-            print("-" * 60)
-
-            for result in model_results:
-                status = "✅" if result.success else "❌"
-                print(
-                    f"   {status} {result.test_type:<12} | "
-                    f"耗时: {result.response_time:.2f}s"
-                )
-
-                if result.success and result.response_preview:
-                    print(f"      📝 响应: {result.response_preview}")
-                elif not result.success and result.error:
-                    print(f"      ⚠️  错误: {result.error}")
-
-        print("\n" + "=" * 80)
-
-    def save_results_json(
-        self, results: List[TestResult], filename: str = "test_results.json"
-    ) -> None:
-        """保存测试结果为JSON文件"""
-        results_data = []
-        for result in results:
-            results_data.append(
-                {
-                    "model": result.model,
-                    "test_type": result.test_type,
-                    "success": result.success,
-                    "response_time": result.response_time,
-                    "error": result.error,
-                    "response_preview": result.response_preview,
-                    "timestamp": time.time(),
-                }
-            )
-
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(results_data, f, ensure_ascii=False, indent=2)
-
-        logger.info(f"💾 测试结果已保存到: {filename}")
-
-    async def run_all_tests(self) -> None:
-        """运行所有模型的全面测试"""
+    def save_results_to_file(self, all_results: Dict[str, List[Dict]], filename: str = "test_results.json"):
+        """保存结果到文件"""
         try:
-            models = self.get_test_models()
-            if not models:
-                logger.error("❌ 没有找到需要测试的模型")
-                return
-
-            logger.info(f"🚀 开始测试 {len(models)} 个模型...")
-
-            all_results = []
-            for model in models:
-                try:
-                    model_results = await self.test_model_comprehensive(model)
-                    all_results.extend(model_results)
-
-                    # 模型间添加短暂延迟，避免请求过于频繁
-                    await asyncio.sleep(1)
-
-                except Exception as e:
-                    logger.error(f"❌ 测试模型 {model} 时发生异常: {e}")
-
-            # 输出结果
-            self.print_results(all_results)
-            self.save_results_json(all_results)
-
-            logger.info("✅ 所有测试完成")
-
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(all_results, f, ensure_ascii=False, indent=2)
+            print(f"\n✅ 测试完成！详细结果已保存到文件: {filename}")
         except Exception as e:
-            logger.error(f"❌ 测试过程中发生异常: {e}")
+            print(f"❌ 保存结果失败: {e}")
+
+    async def run_comprehensive_test(self):
+        """运行综合测试"""
+        print("🚀 开始 LLM 代理模型综合测试")
+        print(f"总模型数量: {len(self.models)}")
+        print(f"测试问题数量: {len(self.test_questions)}")
+        print(f"模型列表: {', '.join(self.models)}")
+        
+        all_results = {
+            "standard_text": [],
+            "streaming_comparison": [],
+            "multimodal": [],
+            "tool_call": []
+        }
+        
+        # 1. 标准文本测试
+        for i, question in enumerate(self.test_questions, 1):
+            print(f"\n📝 标准测试 问题 {i}/{len(self.test_questions)}: {question}")
+            results = await self._run_tests(f"标准测试 (问题 {i})", self.test_single_model, self.models, question)
+            all_results["standard_text"].extend(results)
+
+        # 2. 流式 vs 非流式对比测试
+        if self.streaming_test_models:
+            question = self.test_questions[0]
+            print(f"\n💨 开始流式/非流式对比测试 (问题: {question})")
+            
+            streaming_tasks = [self.test_streaming_single_model(model, question) for model in self.streaming_test_models]
+            non_streaming_tasks = [self.test_single_model(model, question) for model in self.streaming_test_models]
+            
+            results = await asyncio.gather(*streaming_tasks, *non_streaming_tasks, return_exceptions=True)
+            all_results["streaming_comparison"] = [res for res in results if not isinstance(res, Exception)]
+
+        # 3. 多模态测试
+        results = await self._run_tests("多模态", self.test_multimodal_single_model, self.multimodal_models)
+        all_results["multimodal"] = results
+
+        # 4. 工具调用测试
+        results = await self._run_tests("工具调用", self.test_tool_call_single_model, self.tool_call_models)
+        all_results["tool_call"] = results
+        
+        # 保存完整结果
+        self.save_results_to_file(all_results)
+        
+        # 打印所有测试的最终摘要
+        self.print_final_summary(all_results)
+
+    def print_final_summary(self, all_results: Dict[str, List[Dict]]):
+        """打印所有测试的最终摘要"""
+        print("\n" + "🎯" * 40)
+        print(" " * 30 + "最终测试摘要")
+        print("🎯" * 40)
+
+        for test_type, results in all_results.items():
+            if not results:
+                continue
+
+            print(f"\n--- {test_type.replace('_', ' ').upper()} ---")
+            successful_models = [r for r in results if r.get('success')]
+            failed_models = [r for r in results if not r.get('success')]
+            
+            print(f"总测试数: {len(results)}")
+            print(f"成功: {len(successful_models)}, 失败: {len(failed_models)}")
+
+            if successful_models:
+                # 按响应时间排序并打印Top 3
+                sorted_models = sorted(successful_models, key=lambda x: x.get('response_time', float('inf')))
+                print("性能最佳 (Top 3):")
+                for i, r in enumerate(sorted_models[:3]):
+                    model_info = f"{i+1}. {r['model']:<30} | 响应时间: {r['response_time']:.2f}s"
+                    if 'time_to_first_token' in r:
+                        model_info += f" | TTFT: {r.get('time_to_first_token', 0):.2f}s"
+                    if 'tool_calls' in r and r['tool_calls']:
+                         model_info += f" | 工具调用: ✅"
+                    print(model_info)
+
+            if failed_models:
+                print("失败的模型:")
+                for r in failed_models:
+                    print(f"  - {r['model']}: {r.get('error', 'N/A')}")
+        print("\n" + "🎯" * 40)
 
 
 async def main():
     """主函数"""
-    print("🧪 LLM代理服务模型测试工具")
-    print("=" * 50)
-
-    # 检查服务是否运行
     tester = ModelTester()
-    try:
-        # 简单的健康检查
-        import httpx
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:9000/health", timeout=5.0)
-            if response.status_code != 200:
-                logger.error("❌ LLM代理服务未正常运行，请先启动服务")
-                return
-    except Exception as e:
-        logger.error(f"❌ 无法连接到LLM代理服务: {e}")
-        logger.info("💡 请确保服务已启动: python main.py")
-        return
-
-    logger.info("✅ LLM代理服务连接正常")
-
-    # 运行测试
-    await tester.run_all_tests()
+    await tester.run_comprehensive_test()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main()) 

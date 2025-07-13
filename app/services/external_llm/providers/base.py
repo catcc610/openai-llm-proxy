@@ -4,7 +4,7 @@ Base Provider - Abstract base class for all LLM providers.
 
 import abc
 import random
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from logger.logger import get_logger
 
@@ -18,10 +18,17 @@ class BaseProvider(abc.ABC):
     interface for preparing request parameters.
     """
 
-    def __init__(self, provider_name: str, config: Dict[str, Any]):
+    def __init__(self, provider_name: str, config: Dict[str, Any], provider_manager: Optional[Any] = None):
         self._provider_name = provider_name
         self._config = config
         self._keys = self._extract_keys()
+        # 使用传入的ProviderManager实例，如果没有传入则创建新实例
+        if provider_manager is not None:
+            self._provider_manager = provider_manager
+        else:
+            # 导入ProviderManager来使用轮询机制
+            from app.services.external_llm.provider_manager import ProviderManager
+            self._provider_manager = ProviderManager()
 
     def _extract_keys(self) -> List[Dict[str, Any]]:
         """Extracts all available keys (key1, key2, etc.) for this provider."""
@@ -48,33 +55,10 @@ class BaseProvider(abc.ABC):
         """
         Selects a key and maps it to the format LiteLLM expects,
         including any default parameters for the provider.
+        使用ProviderManager的轮询机制选择key。
         """
-        key_group = self._select_key()
-        key_mapping_config = self._config.get("provider_keys_configs", {}).get(
-            self._provider_name
-        )
-
-        if not key_mapping_config:
-            raise ValueError(
-                f"No key mapping configuration for provider: {self._provider_name}"
-            )
-
-        mapped_creds = {}
-
-        # 1. Process environment variable mappings from the selected key group
-        env_mapping = key_mapping_config.get("env_mapping", {})
-        for env_var, litellm_param in env_mapping.items():
-            if env_var in key_group:
-                mapped_creds[litellm_param] = key_group[env_var]
-
-        # 2. Add default values from the provider's config
-        defaults = key_mapping_config.get("defaults", {})
-        for key, value in defaults.items():
-            # Only add the default value if it hasn't been provided in the specific key group
-            if key not in mapped_creds:
-                mapped_creds[key] = value
-
-        return mapped_creds
+        # 使用ProviderManager的轮询机制获取credentials
+        return self._provider_manager._get_mapped_keys(self._provider_name, self._config)
 
     @abc.abstractmethod
     def prepare_litellm_params(

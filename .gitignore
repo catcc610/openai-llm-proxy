@@ -2,3 +2,5 @@
 app/__pycache__
 config/config.yaml
 __pycache__
+config/external_llm/old_llm.yaml
+.env
