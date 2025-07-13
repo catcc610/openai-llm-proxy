@@ -15,201 +15,166 @@
 
 ## 🎯 项目特点
 
-- **⚡ 统一API**：完全兼容 OpenAI SDK 和 API 格式，无缝切换模型。
-- **🔌 多模型支持**：通过 LiteLLM 集成超过100种模型，包括 OpenAI, Anthropic, Google Gemini, 以及国内主流模型。
-- **⚙️ 集中化配置**：通过单个 `config.yaml` 文件统一管理所有模型的API密钥和路由规则。
-- **🚀 高性能**：基于 FastAPI 的全异步架构，为高并发场景提供高吞吐量和低延迟。
-- **🛡️ 类型安全**：使用 Pydantic 和 mypy 强制执行严格的类型检查，保证代码的健壮性和可维护性。
+- **⚡ 统一API**：完全兼容 OpenAI SDK 和 API 格式，无缝切换模型
+- **🔄 智能轮询**：支持多API Key自动轮询，提高并发能力和稳定性
+- **🔐 环境变量支持**：安全的API Key管理，支持动态配置
+- **🌍 多厂商支持**：集成 OpenRouter、火山引擎、Google Gemini 等主流平台
+- **🚀 高性能**：基于 FastAPI 的全异步架构，支持高并发调用
+- **🛡️ 类型安全**：使用 Pydantic 和 mypy 强制执行严格的类型检查
 
-## 🌟 支持的部分模型提供商
+## 🌟 支持的模型
 
-| 提供商 | 支持模型 | 配置变量 |
-|--------|----------|----------|
-| 🔥 **OpenAI** | GPT-4o, GPT-4, GPT-3.5 | `OPENAI_API_KEY` |
-| 🤖 **Anthropic** | Claude 3.5 Sonnet, Opus | `ANTHROPIC_API_KEY` |
-| 🧠 **Google AI** | Gemini 1.5 Pro, Flash | `GOOGLE_API_KEY` |
-| 🎯 **火山引擎** | 深度求索, 豆包 | `VOLCENGINE_API_KEY` |
-| 🏠 **本地部署** | Ollama, vLLM, TGI | (查看高级配置) |
+| 厂商 | 支持模型 | 环境变量 |
+|------|----------|----------|
+| 🔥 **OpenRouter** | GPT-4o-mini, GPT-4-turbo, Claude, Grok, Mistral, 通义千问等 | `OPENROUTER_API_KEY_N` |
+| 🌋 **火山引擎** | DeepSeek-R1, DeepSeek-V3 | `VOLCENGINE_API_KEY_N` |
+| 🧠 **Google AI** | Gemini 2.0/2.5 Flash, Pro | `GEMINI_API_KEY_N` |
 
-> **重要提示**: 提供商名称和所需的环境变量由 LiteLLM 定义。为了确保配置正确，请在添加新模型前查阅 [**LiteLLM 官方支持的模型提供商文档**](https://docs.litellm.ai/docs/providers)。
+> **轮询支持**：每个厂商支持配置多个API Key (N=1,2,3...)，系统自动轮询使用以提高并发处理能力
 
 ## 🚀 快速开始
 
-### 环境要求
-
-- **Python 3.11+**
-- **uv** (推荐的现代Python包管理器)
-
-### 1. 安装 uv
-
-如果你的系统中还没有 `uv`，请先执行安装：
-
-```bash
-# macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows (PowerShell)
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-### 2. 克隆与安装依赖
+### 1. 环境准备
 
 ```bash
 # 克隆项目
 git clone https://github.com/catcc610/openai-llm-proxy.git
 cd openai-llm-proxy
 
-# 使用 uv 创建虚拟环境并安装依赖
+# 安装依赖 (推荐使用 uv)
 uv sync
-
-# (可选) 激活虚拟环境
-# source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate      # Windows
+# 或使用 pip: pip install -r requirements.txt
 ```
 
-### 3. 配置模型
+### 2. 配置API密钥
 
-编辑 `config/config.yaml` 文件。这是你管理所有模型密钥和路由的核心位置。
-
-下面是一个基础配置示例，演示如何添加 GPT-4o 和 Claude 3.5 Sonnet：
-
-```yaml
-# 1. 在 os_env 部分，为你需要使用的模型提供商设置 API 密钥。
-#    这些值将被加载为环境变量。
-os_env:
-  OPENAI_API_KEY: "sk-your-openai-key"
-  ANTHROPIC_API_KEY: "sk-ant-your-key"
-
-# 2. 在 model_config 部分，将你希望在API中使用的自定义模型名称映射到提供商。
-#    这是告诉代理"当我请求'gpt-4o'时，你应该使用'openai'这个提供商的配置"。
-model_config:
-  "gpt-4o": openai
-  "claude-3.5-sonnet": anthropic
-
-# 3. 在 model_routes 部分，为每个提供商定义具体的模型ID。
-#    这会将你的自定义名称映射到LiteLLM所需的实际模型名称。
-model_routes:
-  openai:
-    "gpt-4o": "gpt-4o-2024-08-06"  # LiteLLM 需要的实际模型ID
-  anthropic:
-    "claude-3.5-sonnet": "claude-3-5-sonnet-20240620"
-```
-
-> **为什么需要这样配置？**
->
-> 这种三段式配置提供了一种灵活的路由机制：
-> - `os_env` 集中管理密钥。
-> - `model_config` 允许你使用简洁的自定义名称（如 `gpt-4o`）作为API入口。
-> - `model_routes` 则将这些名称精确映射到不同提供商不断更新的官方模型ID上，而无需修改你的客户端代码。
-
-### 4. 启动服务
+创建 `.env` 文件并配置你的API密钥：
 
 ```bash
-# 使用 uv 直接运行
-uv run python main.py
-
-# 服务将启动在 http://localhost:9000
+# 复制示例文件
+cp env.example .env
 ```
 
-### 5. 测试调用
+编辑 `.env` 文件：
 
-使用你喜欢的HTTP客户端或OpenAI官方SDK进行测试。
+```bash
+# OpenRouter API Keys (支持多个key轮询)
+OPENROUTER_API_KEY_1=sk-or-v1-your-first-key
+OPENROUTER_API_KEY_2=sk-or-v1-your-second-key
+
+# 火山引擎 API Keys
+VOLCENGINE_API_KEY_1=your-volcengine-key
+
+# Google Gemini API Keys  
+GEMINI_API_KEY_1=your-gemini-key-1
+GEMINI_API_KEY_2=your-gemini-key-2
+```
+
+### 3. 启动服务
+
+```bash
+# 启动服务
+uv run python main.py
+# 服务将在 http://localhost:9000 启动
+```
+
+### 4. 测试调用
 
 ```python
 from openai import OpenAI
 
-# 连接到本地代理服务
 client = OpenAI(
     base_url="http://localhost:9000/v1",
-    api_key="any-key"  # 代理服务端的密钥才是关键，这里可填任意值
+    api_key="any-key"  # 可以是任意值
 )
 
-# 使用你在 config.yaml 中定义的模型名称
-models_to_test = ["gpt-4o", "claude-3-5-sonnet"]
+# 测试不同厂商的模型
+models = [
+    "gpt-4o-mini",        # OpenRouter
+    "grok-3-beta",        # OpenRouter  
+    "deepseek-v3-0324",   # 火山引擎
+    "gemini-2.0-flash"    # Google AI
+]
 
-for model_name in models_to_test:
-    try:
-        print(f"--- 正在测试模型: {model_name} ---")
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": "你好，请介绍一下你自己。"}],
-            max_tokens=100
-        )
-        print(f"响应: {response.choices[0].message.content}\n")
-    except Exception as e:
-        print(f"调用模型 {model_name} 时出错: {e}\n")
+for model in models:
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": "你好"}]
+    )
+    print(f"{model}: {response.choices[0].message.content}")
 ```
 
-## 🔧 高级配置
+## 📋 支持的完整模型列表
 
-### 本地模型 (Ollama)
+### OpenRouter 模型
+- `gpt-4o-mini` - OpenAI GPT-4o Mini
+- `gpt-4-turbo` - OpenAI GPT-4 Turbo  
+- `claude-3.5-sonnet` - Anthropic Claude
+- `grok-3-beta` - xAI Grok 3
+- `minimax-01` - MiniMax 模型
+- `mistral-nemo` - Mistral Nemo
+- `qwen3-235b-a22b` - 阿里通义千问
 
-你可以配置代理以连接到本地运行的模型，例如通过Ollama部署的Llama 3.1。
+### 火山引擎模型
+- `deepseek-r1-0528` - DeepSeek R1 推理模型
+- `deepseek-v3-0324` - DeepSeek V3 对话模型
 
-```yaml
-# config/config.yaml
+### Google Gemini 模型
+- `gemini-2.0-flash` - Gemini 2.0 Flash (支持多模态)
+- `gemini-2.5-flash` - Gemini 2.5 Flash (支持多模态)
+- `gemini-2.5-pro` - Gemini 2.5 Pro
 
-# 1. os_env 中无需添加密钥 (对于本地Ollama)
+## 💻 完全兼容 OpenAI API
 
-# 2. model_config 中映射模型名称到自定义的提供商名称 "ollama_local"
-model_config:
-  "llama3.1": ollama_local
+本项目提供与 OpenAI API **100%兼容**的接口，你可以直接替换 `base_url` 使用任何支持 OpenAI 的工具和 SDK。
 
-# 3. model_routes 中定义 "ollama_local" 提供商的具体配置
-model_routes:
-  ollama_local:
-    # 这里的 "llama3.1" 必须与 model_config 中的名称匹配
-    "llama3.1": "ollama/llama3.1" # LiteLLM格式: "ollama/<model_tag>"
-```
-> **注意**: 上述配置中的 `ollama_local` 是一个自定义的提供商标识符，你可以使用任何你喜欢的名称，只要在 `model_config` 和 `model_routes` 中保持一致即可。LiteLLM将根据 `ollama/` 前缀识别并连接到默认的Ollama服务地址 (`http://localhost:11434`)。
-
-## 💻 API 使用示例
-
-代理服务完全兼容OpenAI的API规范。你可以使用任何支持OpenAI API的工具。
-
-### Python SDK
+### Python SDK 示例
 
 ```python
-import openai
+from openai import OpenAI
 
-client = openai.OpenAI(
-    base_url="http://localhost:9000/v1",
-    api_key="dummy-key"
+# 完全兼容 OpenAI SDK - 只需修改 base_url
+client = OpenAI(
+    base_url="http://localhost:9000/v1",  # 指向本地代理
+    api_key="any-key"  # 可以是任意值
 )
 
 # --- 基础对话 ---
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-4o-mini",
     messages=[
         {"role": "system", "content": "你是一个乐于助人的AI助手。"},
-        {"role": "user", "content": "解释一下什么是"量子纠缠"。"}
-    ]
+        {"role": "user", "content": "解释一下什么是量子纠缠？"}
+    ],
+    temperature=0.7,
+    max_tokens=1000
 )
 print(response.choices[0].message.content)
 
 # --- 流式响应 ---
 stream = client.chat.completions.create(
-    model="claude-3-5-sonnet",
-    messages=[{"role": "user", "content": "用Python写一个斐波那契数列函数，并解释其工作原理。"}],
-    stream=True
+    model="claude-3.5-sonnet",
+    messages=[{"role": "user", "content": "用Python写一个斐波那契函数"}],
+    stream=True,
+    temperature=0.5
 )
 
 for chunk in stream:
     if chunk.choices[0].delta.content:
         print(chunk.choices[0].delta.content, end="", flush=True)
 
-# --- 视觉模型（多模态） ---
+# --- 多模态支持 (Gemini) ---
 response = client.chat.completions.create(
-    model="gpt-4o", # 确保此模型支持视觉
+    model="gemini-2.0-flash",
     messages=[{
-        "role": "user", 
+        "role": "user",
         "content": [
             {"type": "text", "text": "这张图片里有什么内容？"},
             {
-                "type": "image_url", 
+                "type": "image_url",
                 "image_url": {
-                    # 支持URL或Base64编码的图片
-                    "url": "data:image/jpeg;base64,/9j/4AAQSk...your_base64_string...",
+                    "url": "https://example.com/image.jpg"
+                    # 也支持 base64: "data:image/jpeg;base64,/9j/4AAQ..."
                 }
             }
         ]
@@ -218,83 +183,109 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-### cURL
+### cURL 示例
 
 ```bash
-# 基础对话
+# 基础聊天请求
 curl http://localhost:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-key" \
   -d '{
-    "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "你好！"}]
+    "model": "gpt-4o-mini",
+    "messages": [
+      {"role": "system", "content": "你是一个专业的翻译助手"},
+      {"role": "user", "content": "将这段话翻译成英文：人工智能正在改变世界"}
+    ],
+    "temperature": 0.3,
+    "max_tokens": 500
   }'
 
 # 流式响应
 curl http://localhost:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-key" \
   -d '{
-    "model": "claude-3-5-sonnet",
-    "messages": [{"role": "user", "content": "写一首关于宇宙的短诗。"}],
-    "stream": true
+    "model": "grok-3-beta",
+    "messages": [{"role": "user", "content": "写一首关于春天的诗"}],
+    "stream": true,
+    "temperature": 0.8
   }'
 
-# 获取可用模型列表 (基于你的配置)
+# 获取支持的模型列表
 curl http://localhost:9000/v1/models
 
 # 健康检查
 curl http://localhost:9000/health
 ```
 
-## 🧪 性能测试
+### 无缝替换现有代码
 
-本项目基于异步框架构建，能够处理高并发请求。你可以使用以下脚本进行简单的基准测试。
+如果你已经在使用 OpenAI API，只需要修改一行代码：
 
 ```python
-import asyncio
-import aiohttp
-import time
+# 原有代码
+client = OpenAI(api_key="sk-...")
 
-# 测试参数
-CONCURRENT_REQUESTS = 100
-MODEL_TO_TEST = "gpt-4o" # 替换为你想测试的、已配置的模型
-PROMPT = "你好"
+# 替换为代理服务 - 仅修改 base_url
+client = OpenAI(
+    base_url="http://localhost:9000/v1",
+    api_key="any-key"
+)
 
-async def benchmark():
-    """对代理服务进行并发请求基准测试"""
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        start_time = time.time()
-        
-        # 创建并发任务
-        for i in range(CONCURRENT_REQUESTS):
-            task = session.post(
-                "http://localhost:9000/v1/chat/completions",
-                json={
-                    "model": MODEL_TO_TEST,
-                    "messages": [{"role": "user", "content": f"{PROMPT} {i+1}"}],
-                    "max_tokens": 50
-                },
-                headers={"Authorization": "Bearer dummy-key"}
-            )
-            tasks.append(task)
-        
-        # 等待所有请求完成
-        responses = await asyncio.gather(*[asyncio.ensure_future(t) for t in tasks])
-        
-        successful_requests = [r for r in responses if r.status == 200]
-        end_time = time.time()
-        total_time = end_time - start_time
-        
-        print(f"--- 性能基准测试结果 ---")
-        print(f"测试模型: {MODEL_TO_TEST}")
-        print(f"总请求数: {CONCURRENT_REQUESTS}")
-        print(f"成功请求数: {len(successful_requests)}")
-        print(f"总耗时: {total_time:.2f} 秒")
-        
-        if total_time > 0:
-            qps = len(successful_requests) / total_time
-            print(f"平均QPS (每秒请求数): {qps:.2f}")
-
-if __name__ == "__main__":
-    asyncio.run(benchmark())
+# 其他代码完全不变！
+response = client.chat.completions.create(...)
 ```
+
+## 🔧 高级功能
+
+### API Key 轮询机制
+
+系统支持为每个厂商配置多个API Key，自动轮询使用：
+
+```bash
+# 配置多个 OpenRouter keys
+OPENROUTER_API_KEY_1=first-key
+OPENROUTER_API_KEY_2=second-key  
+OPENROUTER_API_KEY_3=third-key
+```
+
+系统会按 `key1 → key2 → key3 → key1...` 的顺序轮询，实现：
+- ✅ 提高并发处理能力
+- ✅ 避免单key限流
+- ✅ 增强服务稳定性
+
+## 📊 性能测试
+
+运行内置的性能测试：
+
+```bash
+cd test
+python test_models.py
+```
+
+测试结果示例：
+```
+--- STANDARD TEXT ---
+总测试数: 13, 成功: 8, 失败: 5
+性能最佳 (Top 3):
+1. gpt-4o-mini          | 响应时间: 2.82s
+2. gpt-4-turbo          | 响应时间: 3.00s  
+3. mistral-nemo         | 响应时间: 3.34s
+```
+
+## 🔗 API 接口
+
+- **聊天补全**: `POST /v1/chat/completions`
+- **模型列表**: `GET /v1/models`  
+- **健康检查**: `GET /health`
+- **API文档**: `GET /docs` (Swagger UI)
+
+完全兼容 OpenAI API 规范，支持所有标准参数。
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License
