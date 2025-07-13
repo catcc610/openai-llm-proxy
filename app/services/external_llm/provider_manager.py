@@ -12,7 +12,7 @@ from app.services.external_llm.providers import (
     GenericProvider,
     CustomRouteProvider,
     BedrockProvider,
-    GeminiProvider
+    GeminiProvider,
 )
 
 logger = get_logger(__name__)
@@ -69,17 +69,19 @@ class ProviderManager:
         with self._lock:
             if provider not in self._key_indices:
                 self._key_indices[provider] = 0
-            
+
             current_index = self._key_indices[provider]
             self._key_indices[provider] = (current_index + 1) % total_keys
             return current_index
 
-    def _get_env_value(self, config_value: str, provider: str, selected_key: str, env_var: str) -> str:
+    def _get_env_value(
+        self, config_value: str, provider: str, selected_key: str, env_var: str
+    ) -> str:
         """
         获取环境变量的值。支持直接值和环境变量名称两种配置方式。
         """
         # 如果配置值看起来像环境变量名称（全大写，包含下划线），尝试从环境变量获取
-        if config_value and config_value.isupper() and '_' in config_value:
+        if config_value and config_value.isupper() and "_" in config_value:
             env_value = os.getenv(config_value)
             if env_value:
                 logger.debug(f"✅ 从环境变量 '{config_value}' 获取到值")
@@ -108,23 +110,19 @@ class ProviderManager:
 
         provider_keys = model_keys.get(provider, {})
         if not provider_keys:
-            logger.warning(
-                f"⚠️ No keys found for provider '{provider}'."
-            )
+            logger.warning(f"⚠️ No keys found for provider '{provider}'.")
             return {}
 
         # 获取所有可用的key
-        available_keys = [key for key in provider_keys.keys() if key.startswith('key')]
+        available_keys = [key for key in provider_keys.keys() if key.startswith("key")]
         if not available_keys:
-            logger.warning(
-                f"⚠️ No valid keys found for provider '{provider}'."
-            )
+            logger.warning(f"⚠️ No valid keys found for provider '{provider}'.")
             return {}
 
         # 轮询选择key
         key_index = self._get_next_key_index(provider, len(available_keys))
         selected_key = available_keys[key_index]
-        
+
         provider_creds = provider_keys.get(selected_key, {})
         if not provider_creds:
             logger.warning(
@@ -143,7 +141,9 @@ class ProviderManager:
             config_value = provider_creds.get(env_var)
             if config_value:
                 # 支持从环境变量获取值
-                actual_value = self._get_env_value(config_value, provider, selected_key, env_var)
+                actual_value = self._get_env_value(
+                    config_value, provider, selected_key, env_var
+                )
                 if actual_value:
                     mapped_keys[litellm_param] = actual_value
                 else:
@@ -174,9 +174,11 @@ class ProviderManager:
         for provider in all_providers:
             provider_keys = model_keys.get(provider, {})
             # 统计所有可用的key
-            available_keys = [key for key in provider_keys.keys() if key.startswith('key')]
+            available_keys = [
+                key for key in provider_keys.keys() if key.startswith("key")
+            ]
             current_index = self._key_indices.get(provider, 0)
-            
+
             stats[provider] = {
                 "status": "configured" if provider_keys else "not_configured",
                 "credentials_found": bool(provider_keys),

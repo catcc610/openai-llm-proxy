@@ -19,7 +19,12 @@ class CustomRouteProvider(BaseProvider):
     This provider now supports environment variables for API keys.
     """
 
-    def __init__(self, provider_name: str, config: Dict[str, Any], provider_manager: Optional[Any] = None):
+    def __init__(
+        self,
+        provider_name: str,
+        config: Dict[str, Any],
+        provider_manager: Optional[Any] = None,
+    ):
         # We override __init__ because we don't need the key extraction logic
         # from the parent BaseProvider.
         self._provider_name = provider_name
@@ -27,13 +32,14 @@ class CustomRouteProvider(BaseProvider):
         self._custom_route_config = self._config.get("custom_model_routes", {}).get(
             self._provider_name
         )
-        
+
         # 使用传入的ProviderManager实例，如果没有传入则创建新实例
         if provider_manager is not None:
             self._provider_manager = provider_manager
         else:
             # 导入ProviderManager来使用轮询机制
             from app.services.external_llm.provider_manager import ProviderManager
+
             self._provider_manager = ProviderManager()
 
         if not self._custom_route_config:
@@ -46,10 +52,12 @@ class CustomRouteProvider(BaseProvider):
         获取环境变量的值。支持直接值和环境变量名称两种配置方式。
         """
         # 如果配置值看起来像环境变量名称（全大写，包含下划线），尝试从环境变量获取
-        if config_value and config_value.isupper() and '_' in config_value:
+        if config_value and config_value.isupper() and "_" in config_value:
             env_value = os.getenv(config_value)
             if env_value:
-                logger.debug(f"✅ 从环境变量 '{config_value}' 获取到值用于自定义路由 '{self._provider_name}'")
+                logger.debug(
+                    f"✅ 从环境变量 '{config_value}' 获取到值用于自定义路由 '{self._provider_name}'"
+                )
                 return env_value
             else:
                 logger.warning(

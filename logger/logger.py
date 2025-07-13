@@ -15,17 +15,18 @@ from pathlib import Path
 from loguru import logger
 from typing import Union, Optional, Any
 
+
 class LogConfig:
     """日志记录器配置类"""
-    
+
     _DEFAULT_LOG_PATH = "logs/app.log"
     _DEFAULT_LOG_LEVEL = "INFO"
     _DEFAULT_LOG_FORMAT = (
-    "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-    "<level>{level: <8}</level> | "
-    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-    "<level>{message}</level>"
-)
+        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+        "<level>{message}</level>"
+    )
     _DEFAULT_ROTATION = "10 MB"
     _DEFAULT_RETENTION = "1 week"
     _DEFAULT_COMPRESSION = "zip"
@@ -61,12 +62,15 @@ class LogConfig:
         self.json_logs = json_logs
         self.log_to_console = log_to_console
         self.log_to_file = log_to_file
-        self.log_path = Path(log_path)
+        self.log_path = (
+            Path(log_path) if log_path is not None else Path(self._DEFAULT_LOG_PATH)
+        )
         if self.log_to_file:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self.rotation = rotation  
+        self.rotation = rotation
         self.retention = retention
         self.compression = compression
+
 
 def setup_logging(config: Optional[LogConfig] = None) -> None:
     """
@@ -82,7 +86,7 @@ def setup_logging(config: Optional[LogConfig] = None) -> None:
     logger.remove()
     # 获取格式
     log_format = format_json if config.json_logs else config.format_string
-    
+
     # 添加控制台处理器
     if config.log_to_console:
         logger.add(
@@ -91,7 +95,7 @@ def setup_logging(config: Optional[LogConfig] = None) -> None:
             level=config.level,
             colorize=not config.json_logs,
         )
-    
+
     # 添加文件处理器
     if config.log_to_file:
         logger.add(
@@ -104,31 +108,37 @@ def setup_logging(config: Optional[LogConfig] = None) -> None:
             enqueue=True,
         )
 
-def format_json(record):
-    return json.dumps(
-        {
-            "timestamp": record["time"].strftime("%Y-%m-%d %H:%M:%S.%f"),
-            "level": record["level"].name,
-            "message": record["message"],
-            "module": record["name"],
-            "function": record["function"],
-            "line": record["line"],
-            "process_id": record["process"].id,
-            "thread_id": record["thread"].id,
-            "extra": record["extra"],
-        }
-    ) + "\n"
 
-def get_logger(name: str = None) -> Any:
+def format_json(record: Any) -> str:
+    return (
+        json.dumps(
+            {
+                "timestamp": record["time"].strftime("%Y-%m-%d %H:%M:%S.%f"),
+                "level": record["level"].name,
+                "message": record["message"],
+                "module": record["name"],
+                "function": record["function"],
+                "line": record["line"],
+                "process_id": record["process"].id,
+                "thread_id": record["thread"].id,
+                "extra": record["extra"],
+            }
+        )
+        + "\n"
+    )
+
+
+def get_logger(name: Optional[str] = None) -> Any:
     """
     获取已配置的 logger 实例
-    
+
     Args:
         name: 日志记录器名称，通常为模块名
-    
+
     Returns:
         已配置的 logger 实例
     """
     return logger.bind(name=name)
+
 
 setup_logging()

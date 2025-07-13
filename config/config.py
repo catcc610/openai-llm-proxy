@@ -37,7 +37,7 @@ def get_external_llm_config() -> Any:
 
     if len(external_llm_data) < 1:
         # Handle cases where the config files might be missing or not loaded correctly.
-        return {}   
+        return {}
 
     # The first item is the main llm config, the second is the credential file.
     _external_llm_config = external_llm_data[0]

@@ -30,7 +30,6 @@ class GeminiProvider(BaseProvider):
         # 4. Merge the fully prepared credentials with the rest of the payload.
         final_params = {**payload, **credentials}
 
-
         if final_params.get("top_k") == 0:
             del final_params["top_k"]
             logger.warning(

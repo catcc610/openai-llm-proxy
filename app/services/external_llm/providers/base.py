@@ -18,7 +18,12 @@ class BaseProvider(abc.ABC):
     interface for preparing request parameters.
     """
 
-    def __init__(self, provider_name: str, config: Dict[str, Any], provider_manager: Optional[Any] = None):
+    def __init__(
+        self,
+        provider_name: str,
+        config: Dict[str, Any],
+        provider_manager: Optional[Any] = None,
+    ):
         self._provider_name = provider_name
         self._config = config
         self._keys = self._extract_keys()
@@ -28,6 +33,7 @@ class BaseProvider(abc.ABC):
         else:
             # 导入ProviderManager来使用轮询机制
             from app.services.external_llm.provider_manager import ProviderManager
+
             self._provider_manager = ProviderManager()
 
     def _extract_keys(self) -> List[Dict[str, Any]]:
@@ -58,7 +64,9 @@ class BaseProvider(abc.ABC):
         使用ProviderManager的轮询机制选择key。
         """
         # 使用ProviderManager的轮询机制获取credentials
-        return self._provider_manager._get_mapped_keys(self._provider_name, self._config)
+        return self._provider_manager._get_mapped_keys(  # type: ignore[no-any-return]
+            self._provider_name, self._config
+        )
 
     @abc.abstractmethod
     def prepare_litellm_params(

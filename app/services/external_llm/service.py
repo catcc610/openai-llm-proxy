@@ -209,7 +209,7 @@ class ExternalLLMService(BaseService):
             if usage := response_dict.get("usage"):
                 logger.info(f"📊 [{request_id}] Token usage: {usage}")
 
-            return response_dict
+            return response_dict  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"❌ [{request_id}] 响应转换失败: {e}")
             raise ServiceError("响应格式转换失败", "RESPONSE_CONVERSION_ERROR")

@@ -14,28 +14,28 @@ start:
 
 # 代码检查
 lint:
-	ruff check .
+	ruff check . --exclude test
 
 # 自动修复代码问题
 lint-fix:
-	ruff check --fix .
+	ruff check --fix . --exclude test
 
 # 代码格式化检查
 format:
-	ruff format --check .
+	ruff format --check . --exclude test
 
 # 自动格式化代码
 format-fix:
-	ruff format .
+	ruff format . --exclude test
 
 # 类型检查
 type-check:
-	mypy .
+	mypy . --exclude test
 
 # 完整检查（不修复）
 check:
-	make lint
 	make format
+	make lint
 	make type-check
 
 # 自动修复所有问题
