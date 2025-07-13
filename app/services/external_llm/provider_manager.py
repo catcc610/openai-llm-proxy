@@ -8,8 +8,6 @@ import time
 from app.services.external_llm.providers import (
     BaseProvider,
     GenericProvider,
-    AzureProvider,
-    VertexAIProvider,
     CustomRouteProvider,
     BedrockProvider,
 )
@@ -25,11 +23,7 @@ class ProviderManager:
 
     def __init__(self) -> None:
         self._provider_map: Dict[str, Type[BaseProvider]] = {
-            "azure": AzureProvider,
-            "vertex_ai": VertexAIProvider,
             "bedrock": BedrockProvider,
-            # Add other specialized providers here
-            # e.g., "vertex_ai": VertexAIProvider,
         }
         self._default_provider = GenericProvider
         logger.info("✅ ProviderManager (Factory) initialized.")

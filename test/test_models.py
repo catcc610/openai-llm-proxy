@@ -57,7 +57,7 @@ class ModelTester:
 
     def load_config(self) -> Dict[str, Any]:
         """加载配置文件"""
-        config_path = Path("config/config.yaml")
+        config_path = Path("../external_llm/external_llm.yaml")
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")
 
