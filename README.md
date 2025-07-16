@@ -236,6 +236,53 @@ client = OpenAI(
 response = client.chat.completions.create(...)
 ```
 
+### 适配 Claude Code 编程助手
+
+本服务完全兼容 Anthropic 的 **Claude Code** 终端编程助手。Claude Code 是官方推出的终端AI编程工具，支持代码生成、调试和重构。
+
+#### 安装 Claude Code
+
+```bash
+# 使用 npm 安装 Claude Code
+npm install -g @anthropic-ai/claude-code
+```
+
+更多安装方式请参考：[Claude Code 官方仓库](https://github.com/anthropics/claude-code)
+
+#### 配置代理服务
+
+设置环境变量让 Claude Code 使用本地代理：
+
+```bash
+# 设置 Claude Code 使用本地代理服务
+export ANTHROPIC_BASE_URL=http://localhost:9000
+
+```
+
+#### 支持的模型
+
+Claude Code 通过代理服务可以使用以下模型(config/external_llm/external_llm.yaml 自行配置（provider_config）)：
+
+
+```bash
+# 指定特定模型
+claude --model deepseek-r1-0528 
+```
+
+#### 自定义模型配置
+
+可以通过修改 `config/external_llm/external_llm.yaml` 来自定义模型映射：
+
+```yaml
+# 添加新的模型映射
+provider_config:
+  your-custom-model: volcengine  # 指定使用的厂商
+
+model_routes:
+  volcengine:
+    "your-custom-model": "actual-backend-model"  # 后端实际模型名
+```
+
 ## 🔧 高级功能
 
 ### API Key 轮询机制

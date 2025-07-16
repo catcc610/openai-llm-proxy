@@ -32,16 +32,29 @@ format-fix:
 type-check:
 	mypy . --exclude test
 
-# 完整检查（不修复）
+# 完整检查（不修复）- 显示所有问题但不停止
 check:
+	@echo "🔍 开始代码检查..."
+	@echo "📝 检查代码格式..."
+	@ruff format --check . --exclude test || echo "❌ 格式检查失败，运行 'make format-fix' 修复"
+	@echo "🔍 检查代码规范..."
+	@ruff check . --exclude test || echo "❌ 代码规范检查失败，运行 'make lint-fix' 修复"
+	@echo "🔎 检查类型注解..."
+	@mypy . --exclude test || echo "❌ 类型检查失败，需要手动修复"
+	@echo "✅ 检查完成"
+
+# 快速检查（遇到错误就停止）
+check-strict:
 	make format
-	make lint
+	make lint  
 	make type-check
 
 # 自动修复所有问题
 fix:
+	@echo "🔧 开始自动修复..."
 	make lint-fix
 	make format-fix
+	@echo "✅ 自动修复完成，建议再次运行 'make check' 验证"
 
 # 清理缓存
 clean:

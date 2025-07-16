@@ -146,14 +146,16 @@ def _init_from_config() -> None:
     """从配置文件初始化日志配置"""
     try:
         from config.config import get_server_config
+
         server_config = get_server_config()
         log_level = server_config.get("log_level", "INFO").upper()
-        
+
         # 创建配置实例
         config = LogConfig(level=log_level)
         setup_logging(config)
     except Exception:
         # 如果无法读取配置文件，使用默认配置
         setup_logging()
+
 
 _init_from_config()

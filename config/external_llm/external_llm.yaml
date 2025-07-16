@@ -17,6 +17,8 @@ model_keys:
       GEMINI_API_KEY: GEMINI_API_KEY_1
     key2:
       GEMINI_API_KEY: GEMINI_API_KEY_2
+    key3:
+      GEMINI_API_KEY: GEMINI_API_KEY_3
 
 
 # 厂商密钥配置 - 定义环境变量到LiteLLM参数的映射关系
@@ -63,6 +65,10 @@ provider_config:
   gemini-2.5-flash-web: gemini_web
   gemini-2.5-pro-web: gemini_web
 
+  # claude-code 映射
+  claude-3-5-haiku-20241022: volcengine
+  claude-sonnet-4-20250514: volcengine
+
 # 模型路由配置 - 支持为不同模型配置不同区域
 model_routes:
   # OpenRouter厂商下的模型映射
@@ -83,12 +89,17 @@ model_routes:
   volcengine:
     "deepseek-r1-0528": "deepseek-r1-250528"
     "deepseek-v3-0324": "deepseek-v3-250324"
+    "claude-3-5-haiku-20241022": "deepseek-v3-250324"
+    "claude-sonnet-4-20250514": "deepseek-r1-250528"
 
   # Google Gemini厂商下的模型映射
   gemini:
     "gemini-2.0-flash": "gemini-2.0-flash"
     "gemini-2.5-flash": "gemini-2.5-flash"
     "gemini-2.5-pro": "gemini-2.5-pro"
+    "claude-3-5-haiku-20241022": "gemini-2.5-flash"
+    "claude-sonnet-4-20250514": "gemini-2.5-flash"
+
 
 
 # 自定义模型映射 - 支持环境变量

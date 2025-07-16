@@ -39,8 +39,21 @@ class ExternalLLMRouter(BaseRouter):
             """
             处理聊天完成请求，支持流式和非流式响应。
             """
-            payload = await request.json()
-            return await self.llm_service.handle_chat_completion(payload, request)
+            return await self.llm_service.handle_chat_completion(request)
+
+        @self.router.post(
+            "/messages",
+            summary="处理Anthropic消息格式请求",
+            response_model=None,
+        )
+        async def anthropic_messages(
+            request: Request,
+        ) -> Union[Dict[str, Any], StreamingResponse]:
+            """
+            处理Anthropic消息格式的请求，输入输出都是Anthropic格式。
+            兼容Claude官方API格式。
+            """
+            return await self.llm_service.handle_anthropic_messages(request)
 
 
 def get_external_llm_router() -> ExternalLLMRouter:
